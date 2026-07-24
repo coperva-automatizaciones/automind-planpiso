@@ -2444,9 +2444,12 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
           var n = Number(String(v).replace(/[$,]/g, "").trim());
           return isNaN(n) ? 0 : Math.round(n);
         }
-        if (extractedCampos.montoFinanciado)  upd.montoFinanciado  = _parseMonto(extractedCampos.montoFinanciado);
-        if (extractedCampos.numMensualidades) upd.plazoMeses       = parseInt(extractedCampos.numMensualidades) || prev.plazoMeses;
-        if (extractedCampos.montoMensualidad) upd.mensualidadEst   = _parseMonto(extractedCampos.montoMensualidad);
+        var monto     = extractedCampos.montoFinanciado  ? _parseMonto(extractedCampos.montoFinanciado)  : 0;
+        var mensual   = extractedCampos.montoMensualidad ? _parseMonto(extractedCampos.montoMensualidad) : 0;
+        var meses     = extractedCampos.numMensualidades ? (parseInt(extractedCampos.numMensualidades) || 0) : 0;
+        if (monto)   { upd.montoFinanciado = monto;  upd.e6MontoAprobado    = monto; }
+        if (mensual) { upd.mensualidadEst  = mensual; upd.e6MensualidadReal = mensual; }
+        if (meses)     upd.plazoMeses = meses;
         if (extractedCampos.institucion && !prev.e6Institucion) upd.e6Institucion = extractedCampos.institucion;
       }
       // Guardar todos los datos crudos para referencia
