@@ -1700,29 +1700,44 @@ function RecompraModal({ cliente, onConfirm, onClose }) {
               letterSpacing:".06em", color:"var(--muted)", marginBottom:10 }}>
               Documentos — ¿usar existente o actualizar?
             </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
               {docsPresentes.map(function(d) {
                 var actualizar = docsActualizar.has(d.key);
                 return (
                   <div key={d.key}
                     style={{ display:"flex", alignItems:"center", gap:10,
-                      padding:"10px 14px", borderRadius:10,
-                      border:"1px solid " + (actualizar ? "#f59e0b" : "#22c55e"),
+                      padding:"9px 12px", borderRadius:10,
+                      border:"1.5px solid " + (actualizar ? "#f59e0b" : "#22c55e"),
                       background: actualizar ? "#fffbeb" : "#f0fdf4",
                       transition:"all .15s" }}>
-                    <span style={{ fontSize:15 }}>{actualizar ? "🔄" : "✅"}</span>
+                    <span style={{ fontSize:14, flexShrink:0 }}>{actualizar ? "🔄" : "✅"}</span>
                     <span style={{ flex:1, fontSize:13, fontWeight:600,
                       color: actualizar ? "#92400e" : "#166534" }}>
                       {d.label}
                     </span>
-                    <button
-                      onClick={function(){ toggleDoc(d.key); }}
-                      style={{ fontSize:11, padding:"4px 12px", borderRadius:16, border:"none",
-                        cursor:"pointer", fontWeight:700, transition:"all .12s",
-                        background: actualizar ? "#f59e0b" : "#bbf7d0",
-                        color:       actualizar ? "#fff"    : "#166534" }}>
-                      {actualizar ? "Actualizar" : "Usar existente"}
-                    </button>
+                    {/* Selector tipo segmentado */}
+                    <div style={{ display:"flex", borderRadius:8, overflow:"hidden",
+                      border:"1.5px solid " + (actualizar ? "#f59e0b" : "#22c55e"),
+                      flexShrink:0, fontSize:11, fontWeight:700 }}>
+                      <button
+                        onClick={function(){ if (actualizar) toggleDoc(d.key); }}
+                        style={{ padding:"5px 11px", border:"none", cursor: actualizar ? "pointer" : "default",
+                          background: actualizar ? "transparent" : "#22c55e",
+                          color:      actualizar ? "#a16207"     : "#fff",
+                          transition:"all .12s" }}>
+                        ✓ Usar existente
+                      </button>
+                      <button
+                        onClick={function(){ if (!actualizar) toggleDoc(d.key); }}
+                        style={{ padding:"5px 11px", border:"none",
+                          borderLeft:"1.5px solid " + (actualizar ? "#f59e0b" : "#22c55e"),
+                          cursor: actualizar ? "default" : "pointer",
+                          background: actualizar ? "#f59e0b" : "transparent",
+                          color:      actualizar ? "#fff"    : "#166534",
+                          transition:"all .12s" }}>
+                        ↑ Actualizar
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1730,8 +1745,8 @@ function RecompraModal({ cliente, onConfirm, onClose }) {
             {docsActualizar.size > 0 && (
               <div style={{ fontSize:11, color:"#b45309", marginTop:8, padding:"6px 10px",
                 background:"#fef3c7", borderRadius:8, lineHeight:1.5 }}>
-                Los documentos marcados como <strong>Actualizar</strong> quedarán vacíos
-                y podrás cargar nuevas versiones en el expediente.
+                Los documentos en <strong>Actualizar</strong> quedarán vacíos para que
+                cargues una versión nueva en el expediente.
               </div>
             )}
           </div>
