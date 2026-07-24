@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     // propio usuario autenticado) — evita usar la función para spam/phishing
     const { data: wsUsers } = await adminClient
       .from("users").select("email")
-      .eq("workspace_id", workspaceId);
+      .or(`workspace_id.eq.${workspaceId},agency_id.eq.${workspaceId}`);
     const permitidos = new Set(
       (wsUsers || []).map((u: any) => String(u.email || "").toLowerCase()).filter(Boolean)
     );

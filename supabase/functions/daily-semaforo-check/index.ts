@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
   for (const wsId of wsIds) {
     const [{ data: usrs }, { data: reglas }] = await Promise.all([
       adminClient.from("users").select("id, email, rol, reporta_a")
-        .or(`workspace_id.eq.${wsId},agency_id.eq.${wsId}`),
+        .or(`workspace_id.eq.${wsId},agency_id.eq.${wsId}`),  // incluye usuarios legacy con agency_id
       adminClient.from("alert_rules").select("*")
         .eq("workspace_id", wsId),
     ]);
