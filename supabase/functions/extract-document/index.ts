@@ -64,6 +64,22 @@ Omite cualquier campo que no sea legible o no aplique. Estructura esperada:
 }
 Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
 
+const PROMPT_RFC = `Analiza esta Constancia de Situación Fiscal emitida por el SAT (México).
+Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con certeza.
+Omite cualquier campo que no sea legible. Estructura esperada:
+{
+  "rfc":             "RFC completo con homoclave, exactamente como aparece impreso (ej: LOOA850127L65). LEE verbatim, NO derives ni calcules.",
+  "nombre":          "nombre completo del contribuyente o razón social tal como aparece",
+  "apellidoPaterno": "primer apellido (solo si es persona física)",
+  "apellidoMaterno": "segundo apellido (solo si es persona física)",
+  "curp":            "CURP en mayúsculas, 18 caracteres — solo si aparece explícitamente en el documento; NO lo derives del nombre o fecha. Omite si no es visible.",
+  "regimenFiscal":   "régimen fiscal (ej: Régimen Simplificado de Confianza)",
+  "cp":              "código postal del domicilio fiscal, 5 dígitos",
+  "ciudad":          "municipio o alcaldía del domicilio fiscal",
+  "estado":          "estado de la república del domicilio fiscal"
+}
+Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -71,7 +87,7 @@ Deno.serve(async (req: Request) => {
     const { dataUrl, mimeType, docType } = await req.json() as {
       dataUrl: string;
       mimeType: string;
-      docType: "id" | "domicilio" | "licencia";
+      docType: "id" | "domicilio" | "licencia" | "rfc";
     };
 
     if (!dataUrl || !mimeType || !docType) {
@@ -88,7 +104,10 @@ Deno.serve(async (req: Request) => {
 
     // La clave de OpenAI está guardada bajo el nombre ANTHROPIC_API_KEY en Supabase Secrets
     const client = new OpenAI({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") ?? "" });
-    const prompt  = docType === "id" ? PROMPT_ID : docType === "licencia" ? PROMPT_LIC : PROMPT_DOM;
+    const prompt  = docType === "id"       ? PROMPT_ID
+                  : docType === "licencia" ? PROMPT_LIC
+                  : docType === "rfc"      ? PROMPT_RFC
+                  : PROMPT_DOM;
 
     const completion = await client.chat.completions.create({
       model:      "gpt-4o-mini",
@@ -115,6 +134,10 @@ Deno.serve(async (req: Request) => {
         }
       }
     } catch { /* devuelve objeto vacío si el parse falla */ }
+
+    // Normalizar CURP y RFC a mayúsculas (el modelo a veces devuelve minúsculas)
+    if (campos.curp) campos.curp = campos.curp.toUpperCase().replace(/\s/g, "");
+    if (campos.rfc)  campos.rfc  = campos.rfc.toUpperCase().replace(/\s/g, "");
 
     // Validar CURP: patrón oficial mexicano — si no cumple, omitir antes de devolver
     // Esto evita que un CURP derivado/incorrecto se guarde en el expediente
