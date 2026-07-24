@@ -3022,6 +3022,115 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
               </Fld>
             </Sec>
 
+            {/* ══ ENCUESTA DE PREFERENCIAS DEL CLIENTE (8.1-8.12) ══ */}
+            {(function(){
+              var enc = form.encuestaProspeccion || {};
+              function setEnc(key, val) {
+                set("encuestaProspeccion", Object.assign({}, form.encuestaProspeccion || {}, { [key]: val }));
+              }
+              function setEncArr(key, idx, val) {
+                var base = (form.encuestaProspeccion || {})[key];
+                var arr  = Array.isArray(base) ? base.slice() : ["","",""];
+                arr[idx] = val;
+                setEnc(key, arr);
+              }
+              function PillGroup(props) {
+                return (
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {props.opciones.map(function(op){
+                      var activo = enc[props.campo] === op;
+                      return (
+                        <button key={op} type="button" onClick={function(){ setEnc(props.campo, op); }}
+                          style={{ padding:"5px 14px", borderRadius:20, fontSize:12, fontWeight:600,
+                            border:"1px solid " + (activo ? "var(--accent)" : "var(--line)"),
+                            background: activo ? "var(--accent)" : "var(--card)",
+                            color: activo ? "#fff" : "var(--muted)", cursor:"pointer", transition:"all .12s",
+                            whiteSpace:"nowrap" }}>
+                          {op}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              var colores         = Array.isArray(enc.colores)         ? enc.colores         : ["","",""];
+              var caracteristicas = Array.isArray(enc.caracteristicas) ? enc.caracteristicas : ["","",""];
+              var pasatiempos     = Array.isArray(enc.pasatiempos)     ? enc.pasatiempos     : ["","",""];
+              return (
+                <Sec ico="📋" titulo="Encuesta de preferencias del cliente" defaultOpen={false}>
+                  <Fld label="8.1 ¿Qué uso le dará al vehículo?" full>
+                    <PillGroup campo="uso" opciones={["Negocio","Uso particular","Ambos"]} />
+                  </Fld>
+                  <Fld label="8.2 ¿Cuántas personas viajarán regularmente?" full>
+                    <PillGroup campo="personas" opciones={["1-2","1-4","5-7","7+"]} />
+                  </Fld>
+                  <Fld label="8.3 ¿Espacio para maletas?" full>
+                    <PillGroup campo="maletas" opciones={["Poco","Regular","Mucho"]} />
+                  </Fld>
+                  <Fld label="8.4 ¿Número de puertas?" full>
+                    <PillGroup campo="puertas" opciones={["3","5","Sin preferencia"]} />
+                  </Fld>
+                  <Fld label="8.5 ¿Tipo de vehículo?" full>
+                    <PillGroup campo="tipoVehiculo" opciones={["Hatchback","Notchback","Sedán","Van","SUV","Coupé","Cabriolet","Sin preferencia"]} />
+                  </Fld>
+                  <Fld label="8.6 ¿Requiere conducción todoterreno?" full>
+                    <PillGroup campo="todoterreno" opciones={["Sí","No"]} />
+                  </Fld>
+                  {enc.todoterreno === "Sí" && (
+                    <Fld label="Especificar:" full>
+                      <input className="ef-input" style={IS} value={enc.todoterreno_detalle || ""}
+                        onChange={function(e){ setEnc("todoterreno_detalle", e.target.value); }}
+                        placeholder="Tipo de terreno, uso habitual…" />
+                    </Fld>
+                  )}
+                  <Fld label="8.7 ¿Tipo de combustible?" full>
+                    <PillGroup campo="combustible" opciones={["Gasolina","Diesel"]} />
+                  </Fld>
+                  <Fld label="8.8 ¿Transmisión?" full>
+                    <PillGroup campo="transmision" opciones={["Manual","Automática"]} />
+                  </Fld>
+                  <Fld label="8.9 ¿Tipo de carretera habitual?" full>
+                    <PillGroup campo="carretera" opciones={["Ciudad","Campo","Autopista","Mezcla de todo"]} />
+                  </Fld>
+                  <Fld label="8.10 Tres colores preferidos" full>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      {[0,1,2].map(function(i){
+                        return (
+                          <input key={i} className="ef-input" style={Object.assign({}, IS, { flex:1, minWidth:100 })}
+                            value={colores[i] || ""}
+                            onChange={function(e){ setEncArr("colores", i, e.target.value); }}
+                            placeholder={"Color " + (i+1)} />
+                        );
+                      })}
+                    </div>
+                  </Fld>
+                  <Fld label="8.11 Características deseadas" full>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      {[0,1,2].map(function(i){
+                        return (
+                          <input key={i} className="ef-input" style={Object.assign({}, IS, { flex:1, minWidth:120 })}
+                            value={caracteristicas[i] || ""}
+                            onChange={function(e){ setEncArr("caracteristicas", i, e.target.value); }}
+                            placeholder={"Característica " + (i+1)} />
+                        );
+                      })}
+                    </div>
+                  </Fld>
+                  <Fld label="8.12 Pasatiempos" full>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      {[0,1,2].map(function(i){
+                        return (
+                          <input key={i} className="ef-input" style={Object.assign({}, IS, { flex:1, minWidth:120 })}
+                            value={pasatiempos[i] || ""}
+                            onChange={function(e){ setEncArr("pasatiempos", i, e.target.value); }}
+                            placeholder={"Pasatiempo " + (i+1)} />
+                        );
+                      })}
+                    </div>
+                  </Fld>
+                </Sec>
+              );
+            })()}
 
             </>) /* fin tab perfil */}
 

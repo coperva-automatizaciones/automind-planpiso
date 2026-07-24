@@ -715,6 +715,18 @@
       telVerificadoMetodo: row.tel_verificado_metodo || null,
       emailVerificadoAt:     row.email_verificado_at     || null,
       emailVerificadoMetodo: row.email_verificado_metodo || null,
+      // Encuesta de preferencias del cliente (8.1-8.12)
+      encuestaProspeccion: (function() {
+        if (row.encuesta_prospeccion) {
+          try {
+            var obj = typeof row.encuesta_prospeccion === "string"
+              ? JSON.parse(row.encuesta_prospeccion)
+              : row.encuesta_prospeccion;
+            if (obj && typeof obj === "object") return obj;
+          } catch(e) {}
+        }
+        return {};
+      })(),
     };
   }
 
@@ -835,6 +847,10 @@
       tel_verificado_metodo:  c.telVerificadoMetodo || null,
       email_verificado_at:    c.emailVerificadoAt   || null,
       email_verificado_metodo: c.emailVerificadoMetodo || null,
+      // Encuesta de preferencias del cliente (8.1-8.12)
+      encuesta_prospeccion: (c.encuestaProspeccion && Object.keys(c.encuestaProspeccion).length > 0)
+        ? c.encuestaProspeccion
+        : null,
       workspace_id:         agencyId,
       agency_id:            parentId,
     };
