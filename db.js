@@ -323,6 +323,36 @@
     try {
       const { data: { session } } = await client.auth.getSession();
       if (!session) return;
+
+      // Resolver emails de TODOS los vendedores asignados + su jerarquía.
+      // Se usa window.AUTOMIND.USUARIOS (siempre disponible en runtime) para
+      // no depender de campos enriquecidos que pueden no estar en el form state.
+      const A = window.AUTOMIND;
+      const usuarios = (A && Array.isArray(A.USUARIOS)) ? A.USUARIOS : [];
+      const vids = Array.isArray(v.vendedorIds) ? v.vendedorIds.filter(Boolean)
+                 : (v.vendedorId ? [v.vendedorId] : []);
+      const vendedores = vids.map(function(id) {
+        return usuarios.find(function(u) { return u.id === id; });
+      }).filter(Boolean);
+
+      // Emails únicos por rol, recorriendo la jerarquía de cada vendedor
+      function unique(arr) { return [...new Set(arr.filter(Boolean))]; }
+      var vendedorEmails = unique(vendedores.map(function(u) { return u.email || ""; }));
+      var gerenteEmails  = unique(vendedores.map(function(u) {
+        var ger = u.reportaA ? usuarios.find(function(s) { return s.id === u.reportaA; }) : null;
+        return ger ? (ger.email || "") : "";
+      }));
+      var directorEmails = unique(vendedores.map(function(u) {
+        var ger = u.reportaA ? usuarios.find(function(s) { return s.id === u.reportaA; }) : null;
+        var dir = (ger && ger.reportaA) ? usuarios.find(function(s) { return s.id === ger.reportaA; }) : null;
+        return dir ? (dir.email || "") : "";
+      }));
+
+      console.log("[triggerSemAlert] vendedores:", vids.length,
+        "| vendedorEmails:", vendedorEmails,
+        "| gerenteEmails:", gerenteEmails,
+        "| directorEmails:", directorEmails);
+
       const vehicleDesc = [v.marca, v.modelo, v.anio].filter(Boolean).join(" ");
       await fetch(`${window.SUPABASE_URL}/functions/v1/send-alert`, {
         method: "POST",
@@ -341,9 +371,9 @@
           pctPlanConsumido: v.pctPlanConsumido || 0,
           semaforoFrom,
           semaforoTo,
-          vendedorEmail:    v.vendedorEmail  || null,
-          gerenteEmail:     v.gerenteEmail   || null,
-          directorEmail:    v.directorEmail  || null,
+          vendedorEmails,
+          gerenteEmails,
+          directorEmails,
         }),
       });
     } catch(e) {

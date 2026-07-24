@@ -131,8 +131,16 @@ Deno.serve(async (req) => {
       workspaceId, vehicleId, vehicleDesc, vin,
       diasEnPiso, interesAcum, pctPlanConsumido,
       semaforoFrom, semaforoTo,
+      // Multi-vendedor: arrays de emails por rol (nuevo formato)
+      vendedorEmails, gerenteEmails, directorEmails,
+      // Compatibilidad hacia atrás: string único (formato anterior)
       vendedorEmail, gerenteEmail, directorEmail,
     } = await req.json();
+
+    // Normalizar a arrays (soporta tanto el formato nuevo como el antiguo)
+    const vEmails = Array.isArray(vendedorEmails) ? vendedorEmails : (vendedorEmail ? [vendedorEmail] : []);
+    const gEmails = Array.isArray(gerenteEmails)  ? gerenteEmails  : (gerenteEmail  ? [gerenteEmail]  : []);
+    const dEmails = Array.isArray(directorEmails) ? directorEmails : (directorEmail ? [directorEmail] : []);
 
     if (!workspaceId || !semaforoTo) {
       return new Response(JSON.stringify({ skipped: true, reason: "Missing required fields" }),
@@ -175,10 +183,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Armar lista de destinatarios ───────────────────────────────
+    // Incluye TODOS los vendedores asignados y sus gerentes/directores por jerarquía
     const recipients: string[] = [];
-    if (rule.notify_vendedor  && vendedorEmail)  recipients.push(vendedorEmail);
-    if (rule.notify_gerente   && gerenteEmail)   recipients.push(gerenteEmail);
-    if (rule.notify_director  && directorEmail)  recipients.push(directorEmail);
+    if (rule.notify_vendedor)  recipients.push(...vEmails);
+    if (rule.notify_gerente)   recipients.push(...gEmails);
+    if (rule.notify_director)  recipients.push(...dEmails);
 
     // Solo se permite enviar a correos registrados en el workspace (o al
     // propio usuario autenticado) — evita usar la función para spam/phishing
