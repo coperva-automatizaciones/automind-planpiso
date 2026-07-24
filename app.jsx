@@ -397,6 +397,31 @@ function App() {
           // Detectar rol del usuario para saber si necesita workspace selector
           const ctx = await window.DB.getUserContext();
           if (ctx.type === "super_admin") {
+            // Intentar restaurar el workspace que tenía seleccionado
+            const savedWsId = sessionStorage.getItem("automind_workspace_id");
+            const wasSAMode = sessionStorage.getItem("automind_super_admin") === "1";
+            if (savedWsId && wasSAMode) {
+              try {
+                const data = await window.DB.loadAgencyData(savedWsId);
+                const { agency, usuarios, rows } = data;
+                const usuariosEnriquecidos = enriquecerUsuarios(usuarios);
+                const rowsEnriquecidas     = enriquecerRows(rows, usuariosEnriquecidos);
+                window.AUTOMIND = buildAUTOMIND(agency, rowsEnriquecidas, usuariosEnriquecidos, agency.agency_id || agency.id);
+                const usuarioActual = { nombre:"Super Admin", rol:"director", email: ctx.email, id:"super-admin", isSuperAdmin: true };
+                handleLogin({
+                  id: agency.id, nombre: agency.nombre, ciudad: agency.ciudad,
+                  iniciales: agency.iniciales || agency.nombre.slice(0,2).toUpperCase(),
+                  accent:  agency.accent  || "#2f6fed",
+                  sidebar: agency.sidebar || "#1b2a57",
+                  usuarioActual, isAgencyOwner: true, agencyCtx: null, isSuperAdmin: true,
+                  _superAdminCtxRef: ctx,
+                });
+                return;
+              } catch(e) {
+                sessionStorage.removeItem("automind_workspace_id");
+                sessionStorage.removeItem("automind_super_admin");
+              }
+            }
             handleLogin({ __superAdminCtx: ctx });
             return;
           }
