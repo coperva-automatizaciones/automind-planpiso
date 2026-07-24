@@ -9,6 +9,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Templates predeterminados de Telegram por rol (HTML mode)
+const DEF_TELEGRAM: Record<string, string> = {
+  director: "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n━━━━━━━━━━━━━━━━\n🔖 VIN: <code>[VIN]</code>\n\n📅 Día <b>[DIAS_EN_PISO]</b> en piso\n📊 Plan: <b>[PCT_PLAN]%</b>\n💸 Interés: <b>[INTERES_ACUM]</b>\n\nEstimado [DESTINATARIO], se requiere atención inmediata.",
+  gerente:  "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n━━━━━━━━━━━━━━━━\n🔖 VIN: <code>[VIN]</code>\n\n📅 Día <b>[DIAS_EN_PISO]</b> en piso\n📊 Plan: <b>[PCT_PLAN]%</b>\n💸 Interés: <b>[INTERES_ACUM]</b>\n\nHola [DESTINATARIO], revisa esta unidad.",
+  vendedor: "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n\nHola [DESTINATARIO], tu unidad cambió de estado.\n📅 Día <b>[DIAS_EN_PISO]</b> en piso. Comunícate con tu gerente.",
+};
+
+function fillTelegramTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl
+    .replace(/\[VEHICULO\]/g,        vars.vehicleDesc || "")
+    .replace(/\[VIN\]/g,             vars.vin         || "—")
+    .replace(/\[DIAS_EN_PISO\]/g,    vars.diasEnPiso  || "—")
+    .replace(/\[PCT_PLAN\]/g,        vars.pctPlan     || "—")
+    .replace(/\[INTERES_ACUM\]/g,    vars.interesAcum || "$0.00")
+    .replace(/\[ESTADO_NUEVO\]/g,    vars.semToLabel  || "")
+    .replace(/\[ESTADO_ANTERIOR\]/g, vars.semFromLabel|| "")
+    .replace(/\[DESTINATARIO\]/g,    vars.destinatario|| "")
+    .replace(/\[VENDEDOR\]/g,        vars.destinatario|| "");
+}
+
 const SEM_INFO: Record<string, { emoji: string; label: string; color: string; urgencia: string }> = {
   saludable:   { emoji: "🟢", label: "Margen saludable",    color: "#1f9d57", urgencia: "Informativo" },
   rotacion:    { emoji: "🟡", label: "Rotación media",      color: "#d99613", urgencia: "Atención" },
@@ -245,6 +265,57 @@ Deno.serve(async (req) => {
       semaforo_to:   semaforoTo,
       sent_to:       uniqueRecipients,
     });
+
+    // ── Enviar Telegram (si está habilitado en la regla) ───────────
+    if (rule.telegram_enabled) {
+      const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      if (botToken) {
+        // Obtener telegram_chat_id de los usuarios destinatarios
+        const { data: tgUsers } = await adminClient
+          .from("users")
+          .select("email, rol, nombre, telegram_chat_id")
+          .or(`workspace_id.eq.${workspaceId},agency_id.eq.${workspaceId}`)
+          .not("telegram_chat_id", "is", null);
+
+        const vEmailsLower  = vEmails.map((e: string) => e.toLowerCase());
+        const gEmailsLower  = gEmails.map((e: string) => e.toLowerCase());
+        const dEmailsLower  = dEmails.map((e: string) => e.toLowerCase());
+        const semToInfo = SEM_INFO[semaforoTo]   || { label: semaforoTo,   emoji: "🔴" };
+        const semFromInfo = SEM_INFO[semaforoFrom] || { label: semaforoFrom, emoji: "—" };
+        const mensajesTg = (rule.mensajes || {}).telegram || {};
+
+        const tgVars = {
+          vehicleDesc: vehicleDesc || "",
+          vin:         vin         || "",
+          diasEnPiso:  String(diasEnPiso   || 0),
+          pctPlan:     String(pctPlanConsumido || 0),
+          interesAcum: `$${(interesAcum || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+          semToLabel:  `${semToInfo.emoji} ${semToInfo.label}`,
+          semFromLabel: `${semFromInfo.emoji} ${semFromInfo.label}`,
+          destinatario: "",
+        };
+
+        for (const u of (tgUsers || [])) {
+          const email = String(u.email || "").toLowerCase();
+          // Determinar si debe recibir alerta según su rol y configuración de regla
+          const esVendedor  = rule.notify_vendedor  && vEmailsLower.includes(email);
+          const esGerente   = rule.notify_gerente   && gEmailsLower.includes(email);
+          const esDirector  = rule.notify_director  && dEmailsLower.includes(email);
+          if (!esVendedor && !esGerente && !esDirector) continue;
+
+          const rolKey = esDirector ? "director" : esGerente ? "gerente" : "vendedor";
+          const tpl = mensajesTg[rolKey] || DEF_TELEGRAM[rolKey];
+          const msg = fillTelegramTemplate(tpl, { ...tgVars, destinatario: u.nombre || "" });
+
+          // Fire-and-forget: no bloquear si Telegram falla
+          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: u.telegram_chat_id, text: msg, parse_mode: "HTML" }),
+          }).catch(() => {});
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({ success: true, sent_to: uniqueRecipients }),
