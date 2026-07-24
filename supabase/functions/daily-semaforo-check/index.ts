@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "api-key": brevoKey },
         body: JSON.stringify({
-          sender: { name: "Automind Plan Piso", email: "no-reply@coperva.com" },
+          sender: { name: "Automind Plan Piso", email: "no-reply@automind.mx" },
           to: uniqueRecipients.map(e => ({ email: e })),
           subject: `${semInfo.emoji} ${semInfo.urgencia}: ${vehicleDesc || v.vin || v.id}`,
           htmlContent: html,
