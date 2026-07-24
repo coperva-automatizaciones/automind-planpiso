@@ -32,16 +32,22 @@ function FieldType({ t }) {
   return map[t] || map.text;
 }
 
-function Grid({ tabla, openVehicle }) {
+function Grid({ tabla, openVehicle, usuarioActual }) {
   const cols = tabla.cols;
-  const [sel,     setSel]     = React.useState({ r: 0, c: 0 });
-  const [editing, setEditing] = React.useState(null);   // { r, c, value }
-  const [saving,  setSaving]  = React.useState(null);   // row id being saved
-  const [q,       setQ]       = React.useState("");
-  const [sem,     setSem]     = React.useState("");
+  const [sel,         setSel]         = React.useState({ r: 0, c: 0 });
+  const [editing,     setEditing]     = React.useState(null);
+  const [saving,      setSaving]      = React.useState(null);
+  const [q,           setQ]           = React.useState("");
+  const [sem,         setSem]         = React.useState("");
+  const [selectedIds, setSelectedIds] = React.useState(new Set());
+  const [bulkConfirm, setBulkConfirm] = React.useState(false);
+  const [bulkWord,    setBulkWord]    = React.useState("");
   const inputRef = React.useRef();
 
-  React.useEffect(() => { setSel({ r: 0, c: 0 }); setQ(""); setSem(""); setEditing(null); }, [tabla.id]);
+  React.useEffect(() => {
+    setSel({ r: 0, c: 0 }); setQ(""); setSem(""); setEditing(null);
+    setSelectedIds(new Set()); setBulkConfirm(false); setBulkWord("");
+  }, [tabla.id]);
 
   // Focus input when edit starts
   React.useEffect(() => {
@@ -51,6 +57,51 @@ function Grid({ tabla, openVehicle }) {
   // Solo el inventario soporta edición/eliminación inline: commitEdit y deleteRow
   // operan sobre AUTOMIND.ROWS y la tabla `inventario` de Supabase.
   const esInventario = tabla.id === "inventario";
+
+  // Solo superadmin, gerente y director pueden hacer borrado masivo
+  const puedeEliminarMasivo = esInventario && (
+    usuarioActual?.isSuperAdmin ||
+    usuarioActual?.isAgencyOwner ||
+    usuarioActual?.rol === "gerente" ||
+    usuarioActual?.rol === "director"
+  );
+
+  const allSelected  = puedeEliminarMasivo && tabla.rows.length > 0 && tabla.rows.every(r => selectedIds.has(r.id));
+  const someSelected = puedeEliminarMasivo && selectedIds.size > 0;
+
+  function toggleSelect(id, e) {
+    e && e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(tabla.rows.map(r => r.id)));
+  }
+
+  async function bulkDelete() {
+    const ids = [...selectedIds];
+    const A   = window.AUTOMIND;
+    if (!A) return;
+    setBulkConfirm(false);
+    setBulkWord("");
+    let errores = 0;
+    for (const id of ids) {
+      try { await window.DB.deleteVehicle(id); }
+      catch(e) { console.error("Error eliminando", id, e); errores++; }
+    }
+    const idsSet = new Set(ids);
+    A.ROWS = A.ROWS.filter(r => !idsSet.has(r.id));
+    const tab = A.TABLAS && A.TABLAS.find(t => t.id === tabla.id);
+    if (tab) tab.rows = A.ROWS;
+    setSelectedIds(new Set());
+    setSel({ r: 0, c: 0 });
+    if (errores) alert(`${errores} registro(s) no pudieron eliminarse. Intenta de nuevo.`);
+  }
 
   // Campos NO editables (calculados o protegidos)
   const esEditable = (col) => esInventario && col.tipo !== "calc" && col.key !== "id" && col.key !== "semaforo";
@@ -226,12 +277,36 @@ function Grid({ tabla, openVehicle }) {
         </span>
       </div>
 
+      {/* ── Barra de selección masiva ── */}
+      {someSelected && (
+        <div className="bulk-action-bar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
+            strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+          </svg>
+          <span className="bulk-count">
+            {selectedIds.size} unidad{selectedIds.size !== 1 ? "es" : ""} seleccionada{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+          <button className="btn btn-sm bulk-cancel" onClick={() => setSelectedIds(new Set())}>Cancelar</button>
+          <button className="btn btn-sm danger" onClick={() => { setBulkWord(""); setBulkConfirm(true); }}>
+            Eliminar selección
+          </button>
+        </div>
+      )}
+
       {/* Cuadrícula */}
       <div className="sheet-scroll">
         <table className="sheet grid">
           <thead>
             <tr>
               <th className="rownum corner"></th>
+              {puedeEliminarMasivo && (
+                <th className="chk-col" title="Seleccionar todo">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+                </th>
+              )}
               {cols.map((c, ci) => (
                 <th key={c.key} style={{ width: c.w }}
                   className={(c.tipo === "calc" ? "calc " : "") + (sel.c === ci ? "hl " : "") + (c.align === "right" ? "r" : "")}>
@@ -242,13 +317,18 @@ function Grid({ tabla, openVehicle }) {
           </thead>
           <tbody>
             {data.map((r, ri) => (
-              <tr key={r.id} className={sel.r === ri ? "rsel" : ""}>
+              <tr key={r.id} className={"" + (sel.r === ri ? "rsel " : "") + (selectedIds.has(r.id) ? "row-selected " : "")}>
                 <td className={"rownum" + (sel.r === ri ? " hl" : "")}
                   onClick={() => { setSel({r:ri, c:sel.c}); tabla.fichas && openVehicle(r); }}
                   onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x:e.clientX, y:e.clientY, row:r, ri }); }}>
                   <span className="rn-n">{ri + 1}</span>
                   {tabla.fichas && <span className="rn-exp">{I.arrowUR({ width: 12, height: 12 })}</span>}
                 </td>
+                {puedeEliminarMasivo && (
+                  <td className="chk-col" onClick={e => toggleSelect(r.id, e)}>
+                    <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                  </td>
+                )}
                 {cols.map((c, ci) => {
                   const calc   = c.tipo === "calc";
                   const seld   = sel.r === ri && sel.c === ci;
@@ -297,6 +377,7 @@ function Grid({ tabla, openVehicle }) {
           <tfoot>
             <tr>
               <td className="rownum corner foot"></td>
+              {puedeEliminarMasivo && <td className="chk-col foot"></td>}
               {cols.map((c, ci) => (
                 <td key={c.key} className={"foot " + (c.align === "right" ? "r" : "")} style={{ width: c.w }}>
                   {sums[ci] != null ? <><span className="foot-lbl">Suma</span> {(c.fmt === "money" || c.fmt === "money2") ? fmtMoney(sums[ci]) : fmtNum(Math.round(sums[ci]))}</> : ci === 0 ? <span className="foot-lbl">{data.length} reg.</span> : ""}
@@ -329,7 +410,7 @@ function Grid({ tabla, openVehicle }) {
         </div>
       )}
 
-      {/* ── Modal confirmación de eliminación ── */}
+      {/* ── Modal confirmación de eliminación individual ── */}
       {delConfirm && (
         <>
           <div className="del-modal-scrim" onClick={() => setDelConfirm(null)} />
@@ -353,11 +434,53 @@ function Grid({ tabla, openVehicle }) {
           </div>
         </>
       )}
+
+      {/* ── Modal confirmación borrado masivo — requiere escribir "Borrar" ── */}
+      {bulkConfirm && (
+        <>
+          <div className="del-modal-scrim" onClick={() => setBulkConfirm(false)} />
+          <div className="del-modal" style={{ zIndex:1002 }}>
+            <div className="del-modal-ico">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#e0492f" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+              </svg>
+            </div>
+            <h3>Eliminar {selectedIds.size} unidades</h3>
+            <p>
+              Vas a eliminar permanentemente{" "}
+              <b>{selectedIds.size} vehículo{selectedIds.size !== 1 ? "s" : ""}</b> del inventario.
+              Esta acción <b>no se puede deshacer</b>.
+            </p>
+            <p style={{ fontSize:13, color:"var(--muted)", marginBottom:6 }}>
+              Escribe <b style={{ color:"var(--ink)" }}>Borrar</b> para confirmar:
+            </p>
+            <input
+              className="bulk-word-input"
+              placeholder="Borrar"
+              value={bulkWord}
+              onChange={e => setBulkWord(e.target.value)}
+              autoFocus
+              onKeyDown={e => { if (e.key === "Enter" && bulkWord === "Borrar") bulkDelete(); }}
+            />
+            <div className="del-modal-btns">
+              <button className="btn" onClick={() => { setBulkConfirm(false); setBulkWord(""); }}>
+                Cancelar
+              </button>
+              <button className="btn danger" disabled={bulkWord !== "Borrar"} onClick={bulkDelete}>
+                Eliminar {selectedIds.size} unidades
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function Database({ tablas, tablaId, setTablaId, openVehicle, onAddColab }) {
+function Database({ tablas, tablaId, setTablaId, openVehicle, onAddColab, usuarioActual }) {
   const tabla = tablas.find((t) => t.id === tablaId) || tablas[0];
   return (
     <div className="page db-page">
@@ -387,7 +510,7 @@ function Database({ tablas, tablaId, setTablaId, openVehicle, onAddColab }) {
         )}
       </div>
 
-      <Grid tabla={tabla} openVehicle={openVehicle} />
+      <Grid tabla={tabla} openVehicle={openVehicle} usuarioActual={usuarioActual} />
     </div>
   );
 }

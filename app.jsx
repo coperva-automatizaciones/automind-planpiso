@@ -769,7 +769,8 @@ function App() {
               usuarioActual={tenant.usuarioActual} />
           )}
           {view === "database" && <Database tablas={A.TABLAS} tablaId={tablaId} setTablaId={setTablaId} openVehicle={setVehicle}
-            onAddColab={() => { setView("colaboradores"); setColabAutoOpen(true); }} />}
+            onAddColab={() => { setView("colaboradores"); setColabAutoOpen(true); }}
+            usuarioActual={tenant.usuarioActual} />}
           {view === "alertas" && <ConfigAlertas usuarioActual={tenant.usuarioActual} />}
           {view === "importar" && <ImportarInventario onIrInventario={() => { setView("database"); setTablaId("inventario"); }} onImportDone={() => setRowsVersion(v => v + 1)} />}
           {view === "colaboradores" && <Colaboradores usuarios={A.USUARIOS || []} rows={A.ROWS} usuarioActual={tenant.usuarioActual}

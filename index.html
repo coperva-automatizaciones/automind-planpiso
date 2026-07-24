@@ -873,6 +873,17 @@ select.ef-input{cursor:pointer;}
 .ctx-sep{height:1px;background:var(--line-2);margin:4px 0;}
 .del-modal-scrim{position:fixed;inset:0;background:rgba(10,16,40,.24);z-index:1000;}
 
+/* ── Borrado masivo (database.jsx) ─────────────────────────── */
+.chk-col{width:34px!important;min-width:34px;text-align:center;padding:0 6px!important;cursor:pointer;}
+.chk-col input[type="checkbox"]{cursor:pointer;width:14px;height:14px;accent-color:var(--accent);display:block;margin:0 auto;}
+.row-selected td{background:rgba(47,111,237,.07)!important;}
+.bulk-action-bar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#fff;border:1.5px solid #e0492f;border-radius:10px;margin:0 0 6px;font-size:13px;font-weight:600;color:var(--ink);}
+.bulk-count{flex:1;color:#e0492f;}
+.bulk-cancel{background:var(--surface)!important;color:var(--ink)!important;}
+.bulk-word-input{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;margin:2px 0 12px;box-sizing:border-box;}
+.bulk-word-input:focus{border-color:#e0492f;outline:none;}
+.btn.danger:disabled{background:#e9a99a;cursor:not-allowed;}
+
 
 /* ── Grupo colapsable ── */
 .vgroup.collapsible{display:flex;align-items:center;gap:8px;width:100%;text-align:left;cursor:pointer;padding:10px 20px;background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line-2);transition:background .12s;}
@@ -1105,7 +1116,7 @@ window.addEventListener('unhandledrejection', function(e) {
 <script type="text/babel" src="components.jsx?v=20260710b"></script>
 <script type="text/babel" src="charts.jsx?v=20260618h"></script>
 <script type="text/babel" src="dashboard.jsx?v=20260722h"></script>
-<script type="text/babel" src="database.jsx?v=20260618h"></script>
+<script type="text/babel" src="database.jsx?v=20260724a"></script>
 <script type="text/babel" src="import.jsx?v=20260722b"></script>
 <script type="text/babel" src="colaboradores.jsx?v=20260722a"></script>
 <script type="text/babel" src="inventario-editor.jsx?v=20260722a"></script>
@@ -1116,7 +1127,7 @@ window.addEventListener('unhandledrejection', function(e) {
 <script type="text/babel" src="ventas.jsx?v=20260710b"></script>
 <script type="text/babel" src="crm.jsx?v=20260724e"></script>
 <script type="text/babel" src="super-admin.jsx?v=20260710d"></script>
-<script type="text/babel" src="app.jsx?v=20260722g"></script>
+<script type="text/babel" src="app.jsx?v=20260724a"></script>
 <script type="text/babel">
   ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
