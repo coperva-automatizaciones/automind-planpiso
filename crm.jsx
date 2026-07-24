@@ -2437,10 +2437,23 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
         if (extractedCampos.colonia && !prev.colonia) upd.colonia = extractedCampos.colonia;
         if (extractedCampos.direccion && !prev.direccion) upd.direccion = extractedCampos.direccion;
       }
+      if (fuente === "solicitud_credito") {
+        /* Parsear limpiando comas/puntos de miles y símbolo $ */
+        function _parseMonto(v) {
+          if (!v) return 0;
+          var n = Number(String(v).replace(/[$,]/g, "").trim());
+          return isNaN(n) ? 0 : Math.round(n);
+        }
+        if (extractedCampos.montoFinanciado)  upd.montoFinanciado  = _parseMonto(extractedCampos.montoFinanciado);
+        if (extractedCampos.numMensualidades) upd.plazoMeses       = parseInt(extractedCampos.numMensualidades) || prev.plazoMeses;
+        if (extractedCampos.montoMensualidad) upd.mensualidadEst   = _parseMonto(extractedCampos.montoMensualidad);
+        if (extractedCampos.institucion && !prev.e6Institucion) upd.e6Institucion = extractedCampos.institucion;
+      }
       // Guardar todos los datos crudos para referencia
-      var clave = fuente === "id" ? "datosId"
-                : fuente === "licencia" ? "datosLicencia"
-                : fuente === "rfc"      ? "datosRfc"
+      var clave = fuente === "id"               ? "datosId"
+                : fuente === "licencia"         ? "datosLicencia"
+                : fuente === "rfc"              ? "datosRfc"
+                : fuente === "solicitud_credito" ? "datosSolicitudCredito"
                 : "datosDomicilio";
       upd[clave] = extractedCampos;
       return Object.assign({}, prev, upd);
@@ -3224,12 +3237,15 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
             {/* ── Solicitud de crédito (solo cuando forma = Crédito) ── */}
             {form.formaPagoCot === "Crédito" && (
             <Sec ico="📋" titulo="Solicitud de crédito" defaultOpen>
-              {/* Upload del formato */}
+              {/* Upload del formato con extracción IA */}
               <Fld label="Formato de solicitud" full>
-                <DocSimpleUpload
+                <DocUpload
                   label="Solicitud de crédito firmada"
+                  sublabel="IA extrae monto, mensualidades y plazo"
+                  docType="solicitud_credito"
                   value={form.docCredSolicitud || null}
-                  onChange={v => set("docCredSolicitud", v)} />
+                  onChange={v => set("docCredSolicitud", v)}
+                  onExtract={campos => aplicarCampos(campos, "solicitud_credito")} />
               </Fld>
 
               {/* Monto financiado */}

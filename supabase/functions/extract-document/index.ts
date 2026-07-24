@@ -64,6 +64,19 @@ Omite cualquier campo que no sea legible o no aplique. Estructura esperada:
 }
 Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
 
+const PROMPT_SOLICITUD = `Analiza esta solicitud de crédito automotriz o documento financiero (puede ser formato del banco, SOFOM o agencia).
+Devuelve ÚNICAMENTE un objeto JSON válido con los campos numéricos que puedas leer con certeza.
+Omite cualquier campo que no sea claramente legible. Estructura esperada:
+{
+  "montoFinanciado":   "monto total financiado en pesos, solo dígitos sin comas ni símbolo $ (ej: 299990)",
+  "numMensualidades":  "número de mensualidades o plazos (ej: 36)",
+  "montoMensualidad":  "monto de la mensualidad en pesos, solo dígitos sin comas ni símbolo $ (ej: 8333)",
+  "tasaInteres":       "tasa de interés anual en porcentaje, solo el número (ej: 12.5) — omite si no aparece",
+  "institucion":       "nombre del banco, SOFOM o institución financiera — omite si no aparece"
+}
+IMPORTANTE: devuelve SOLO números para los montos (sin comas, puntos de miles, ni símbolo $).
+Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
+
 const PROMPT_RFC = `Analiza esta Constancia de Situación Fiscal emitida por el SAT (México).
 Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con certeza.
 Omite cualquier campo que no sea legible. Estructura esperada:
@@ -87,7 +100,7 @@ Deno.serve(async (req: Request) => {
     const { dataUrl, mimeType, docType } = await req.json() as {
       dataUrl: string;
       mimeType: string;
-      docType: "id" | "domicilio" | "licencia" | "rfc";
+      docType: "id" | "domicilio" | "licencia" | "rfc" | "solicitud_credito";
     };
 
     if (!dataUrl || !mimeType || !docType) {
@@ -104,9 +117,10 @@ Deno.serve(async (req: Request) => {
 
     // La clave de OpenAI está guardada bajo el nombre ANTHROPIC_API_KEY en Supabase Secrets
     const client = new OpenAI({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") ?? "" });
-    const prompt  = docType === "id"       ? PROMPT_ID
-                  : docType === "licencia" ? PROMPT_LIC
-                  : docType === "rfc"      ? PROMPT_RFC
+    const prompt  = docType === "id"               ? PROMPT_ID
+                  : docType === "licencia"         ? PROMPT_LIC
+                  : docType === "rfc"              ? PROMPT_RFC
+                  : docType === "solicitud_credito" ? PROMPT_SOLICITUD
                   : PROMPT_DOM;
 
     const completion = await client.chat.completions.create({
