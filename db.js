@@ -265,10 +265,37 @@
 
   /* ── Inventario — CRUD ────────────────────────────────────── */
 
+  // Computa el semáforo desde los campos reales del vehículo (fechaFactura + días gracia).
+  // Replica la lógica canónica de enriquecerRows (app.jsx) para que saveVehicle
+  // siempre compare el estado ACTUAL, no el valor obsoleto del form state.
+  function computarSemaforo(v) {
+    var HOY = new Date();
+    var MS_DIA = 86400000;
+    var ff = v.fechaFactura ? new Date(v.fechaFactura) : new Date(HOY.getTime() - 7 * MS_DIA);
+    var diasEnPiso = Math.max(0, Math.round((HOY - ff) / MS_DIA) - 1);
+    var graciaBase  = Number(v.diasGraciaBase)  || 0;
+    var graciaExtra = Number(v.diasGraciaExtra) || 0;
+    var diasGraciaTotal = graciaBase + graciaExtra;
+    var pct = diasGraciaTotal > 0
+      ? Math.round((diasEnPiso / diasGraciaTotal) * 100)
+      : (diasEnPiso > 0 ? 101 : 0);
+    if (pct > 100) return "intereses";
+    if (pct > 86)  return "vencer";
+    if (pct > 76)  return "comprometido";
+    if (pct > 61)  return "rotacion";
+    return "saludable";
+  }
+
   async function saveVehicle(agencyId, vehicleData) {
     console.log("[saveVehicle] agencyId:", agencyId,
       "| agencyParentId:", window.AUTOMIND?.agencyParentId,
       "| vehicleId:", vehicleData.id);
+
+    // Re-computar semáforo desde los campos reales del vehículo.
+    // vehicleData.semaforo puede estar obsoleto si el usuario cambió fechas
+    // o días de gracia en el editor (el form state no re-enriquece las filas).
+    vehicleData = Object.assign({}, vehicleData, { semaforo: computarSemaforo(vehicleData) });
+    console.log("[saveVehicle] semaforo re-computado:", vehicleData.semaforo);
 
     // Obtener semáforo anterior antes de guardar (para detectar cambios)
     let semaforoFrom = null;
