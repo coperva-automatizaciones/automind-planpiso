@@ -3251,21 +3251,19 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
                   onExtract={campos => aplicarCampos(campos, "solicitud_credito")} />
               </Fld>
 
-              {/* Monto financiado */}
+              {/* Resumen financiero extraído del documento */}
               <Fld label="Monto financiado ($)">
-                <input type="number" className="ef-input"
-                  style={{ ...IS, fontWeight:700, color:"var(--accent)" }}
-                  min="0" step="1000"
-                  value={form.montoFinanciado || ""}
-                  placeholder={
-                    (form.precioVenta && form.enganche)
-                      ? String(Math.max(0, Number(form.precioVenta) - Number(form.enganche)))
-                      : "0"
-                  }
-                  onChange={e => set("montoFinanciado", Number(e.target.value) || 0)} />
+                <div style={{
+                  padding:"7px 10px", borderRadius:7, border:"1px solid var(--line)",
+                  background:"var(--bg)", fontSize:13, fontWeight:700, color:"var(--accent)",
+                }}>
+                  {form.montoFinanciado > 0
+                    ? "$" + Number(form.montoFinanciado).toLocaleString("es-MX")
+                    : <span style={{ fontWeight:400, fontSize:12, color:"var(--muted)" }}>
+                        Se extrae de la solicitud de crédito
+                      </span>}
+                </div>
               </Fld>
-
-              {/* Resumen: número y monto de mensualidades */}
               <Fld label="Número de mensualidades">
                 <div style={{
                   padding:"7px 10px", borderRadius:7, border:"1px solid var(--line)",
@@ -3274,7 +3272,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
                   {form.plazoMeses
                     ? form.plazoMeses + " meses"
                     : <span style={{ fontWeight:400, fontSize:12, color:"var(--muted)" }}>
-                        Definir plazo en cotización
+                        Se extrae de la solicitud de crédito
                       </span>}
                 </div>
               </Fld>
@@ -3286,7 +3284,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
                   {form.mensualidadEst > 0
                     ? "$" + Number(form.mensualidadEst).toLocaleString("es-MX")
                     : <span style={{ fontWeight:400, fontSize:12, color:"var(--muted)" }}>
-                        Se calcula al ingresar enganche y plazo
+                        Se extrae de la solicitud de crédito
                       </span>}
                 </div>
               </Fld>
