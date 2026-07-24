@@ -894,7 +894,9 @@ function DocSimpleUpload({ label, sublabel, value, onChange }) {
 /* ── Multi-upload de comprobantes de pago con extracción IA de monto ──────── */
 function MultiComprobantesUpload({ value, onChange }) {
   var items = value || [];
-  var [cargando, setCargando] = React.useState(false);
+  var [cargando,    setCargando]    = React.useState(false);
+  var [editIdx,     setEditIdx]     = React.useState(null); // índice editando monto
+  var [editValStr,  setEditValStr]  = React.useState("");
   var inputRef = React.useRef(null);
 
   var total = items.reduce(function(sum, it) {
@@ -913,7 +915,6 @@ function MultiComprobantesUpload({ value, onChange }) {
       var dataUrl = ev.target.result;
       var item = { name: file.name, type: file.type, dataUrl: dataUrl,
                    cargadoEn: new Date().toISOString(), monto: null };
-      // Llamar Edge Function para extraer monto con IA
       try {
         var fnUrl = (window.SUPABASE_URL || "").replace(/\/$/, "") + "/functions/v1/extract-document";
         var res = await fetch(fnUrl, {
@@ -925,9 +926,12 @@ function MultiComprobantesUpload({ value, onChange }) {
           body: JSON.stringify({ dataUrl: dataUrl, mimeType: file.type, docType: "comprobante" }),
         });
         var data = await res.json();
-        if (data.ok && data.campos && data.campos.monto) {
-          var m = parseFloat(String(data.campos.monto).replace(/[^0-9.]/g, ""));
+        if (data.ok && data.campos) {
+          var m = parseFloat(String(data.campos.monto || "").replace(/[^0-9.]/g, ""));
           if (!isNaN(m) && m > 0) item.monto = m;
+          if (data.campos.referencia) item.referencia = data.campos.referencia;
+          if (data.campos.fecha)      item.fecha      = data.campos.fecha;
+          if (data.campos.banco)      item.banco      = data.campos.banco;
         }
       } catch(eAI) {
         console.warn("[CRM] IA comprobante error:", eAI.message);
@@ -939,7 +943,24 @@ function MultiComprobantesUpload({ value, onChange }) {
   }
 
   function quitar(idx) {
+    setEditIdx(null);
     onChange(items.filter(function(_, i) { return i !== idx; }));
+  }
+
+  function startEdit(idx) {
+    setEditIdx(idx);
+    setEditValStr(items[idx].monto != null ? String(items[idx].monto) : "");
+  }
+
+  function commitEdit(idx) {
+    var parsed = parseFloat(String(editValStr).replace(/[^0-9.]/g, ""));
+    var updated = items.map(function(it, i) {
+      if (i !== idx) return it;
+      return Object.assign({}, it, { monto: (!isNaN(parsed) && parsed > 0) ? parsed : null });
+    });
+    onChange(updated);
+    setEditIdx(null);
+    setEditValStr("");
   }
 
   var fmt = window.fmtMoney || function(n) {
@@ -950,13 +971,15 @@ function MultiComprobantesUpload({ value, onChange }) {
     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline" }}>
         <span style={{ fontSize:12, fontWeight:700, color:"var(--ink-2)" }}>Comprobantes de pago</span>
-        <span style={{ fontSize:10, color:"var(--muted)" }}>Transferencia · cheque · recibo · IA extrae el monto</span>
+        <span style={{ fontSize:10, color:"var(--muted)" }}>IA extrae monto · haz clic en el monto para corregir</span>
       </div>
       {items.map(function(it, i) {
-        var isSaved = !!(it.storageKey && !it.dataUrl);
+        var isSaved  = !!(it.storageKey && !it.dataUrl);
+        var isEditing = editIdx === i;
         return (
           <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px",
-            border:"1px solid var(--line)", borderRadius:9, background:"var(--bg)" }}>
+            border:"1px solid " + (it.monto > 0 ? "rgba(34,197,94,.3)" : "var(--line)"),
+            borderRadius:9, background: it.monto > 0 ? "#f0fdf4" : "var(--bg)" }}>
             <div style={{ width:32, height:32, borderRadius:6, flexShrink:0, fontSize:18,
               display:"flex", alignItems:"center", justifyContent:"center",
               background: isSaved ? "#d1fae5" : "#eff6ff", color: isSaved ? "#059669" : "#2f6fed" }}>
@@ -966,19 +989,35 @@ function MultiComprobantesUpload({ value, onChange }) {
               <div style={{ fontSize:12, fontWeight:600, color:"var(--ink)",
                 overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{it.name}</div>
               <div style={{ fontSize:10, color: isSaved ? "#059669" : "var(--muted)", marginTop:1 }}>
-                {isSaved ? "Guardado en expediente" : "Pendiente de guardar"}
+                {it.banco ? it.banco + (it.fecha ? " · " + it.fecha : "") : (isSaved ? "Guardado" : "Pendiente de guardar")}
               </div>
             </div>
-            {it.monto != null
-              ? <span style={{ fontSize:12, fontWeight:700, color:"#065f46", background:"#d1fae5",
-                  padding:"2px 9px", borderRadius:12, whiteSpace:"nowrap", flexShrink:0 }}>
-                  {fmt(it.monto)}
-                </span>
-              : <span style={{ fontSize:11, color:"#94a3b8", whiteSpace:"nowrap", flexShrink:0 }}>
-                  sin monto IA
-                </span>
-            }
-            <button type="button" onClick={() => quitar(i)}
+            {/* Monto: editable */}
+            {isEditing ? (
+              <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                <input
+                  autoFocus
+                  style={{ width:110, padding:"3px 8px", borderRadius:7,
+                    border:"1.5px solid var(--accent)", fontSize:12, fontWeight:700, textAlign:"right" }}
+                  placeholder="0.00"
+                  value={editValStr}
+                  onChange={function(e){ setEditValStr(e.target.value); }}
+                  onKeyDown={function(e){ if (e.key === "Enter") commitEdit(i); if (e.key === "Escape") setEditIdx(null); }}
+                  onBlur={function(){ commitEdit(i); }}
+                />
+              </div>
+            ) : (
+              <button type="button"
+                title={it.monto != null ? "Haz clic para editar el monto" : "Ingresar monto manualmente"}
+                onClick={function(){ startEdit(i); }}
+                style={{ fontSize:12, fontWeight:700, flexShrink:0, border:"none", cursor:"pointer",
+                  borderRadius:12, padding:"3px 10px", transition:"all .12s",
+                  background: it.monto != null ? "#d1fae5" : "#fef9c3",
+                  color:      it.monto != null ? "#065f46" : "#92400e" }}>
+                {it.monto != null ? fmt(it.monto) + " ✎" : "Ingresar monto ✎"}
+              </button>
+            )}
+            <button type="button" onClick={function(){ quitar(i); }}
               style={{ border:"none", background:"#fee2e2", cursor:"pointer", color:"#b91c1c",
                 fontSize:13, padding:"3px 7px", borderRadius:6, lineHeight:1, flexShrink:0 }}>✕</button>
           </div>
@@ -987,10 +1026,10 @@ function MultiComprobantesUpload({ value, onChange }) {
       {total > 0 && (
         <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 12px",
           background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:9 }}>
-          <span style={{ fontSize:12, color:"#1e40af", flex:1, fontWeight:600 }}>Total comprobado</span>
-          <span style={{ fontSize:14, fontWeight:800, color:"#1e40af" }}>
-            {fmt(total)}
+          <span style={{ fontSize:12, color:"#1e40af", flex:1, fontWeight:600 }}>
+            Total comprobado ({items.filter(function(it){ return it.monto > 0; }).length} comprobante{items.filter(function(it){ return it.monto > 0; }).length !== 1 ? "s" : ""})
           </span>
+          <span style={{ fontSize:15, fontWeight:800, color:"#1e40af" }}>{fmt(total)}</span>
         </div>
       )}
       <label style={{ display:"inline-flex", alignItems:"center", gap:6,
@@ -3705,6 +3744,76 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
 
             {/* ══ TAB: PAGO ══ */}
             {tabActivo === "pago" && (<>
+
+            {/* ── Panel resumen: precio de venta vs. comprobado ── */}
+            {(function() {
+              var precio    = Number(form.precioVenta)  || 0;
+              var lista     = Number(form.precioLista)  || 0;
+              var comprobados = (form.docComprobantes || []).reduce(function(s, it){ return s + (Number(it.monto)||0); }, 0);
+              var base      = precio || lista;
+              var saldo     = base - comprobados;
+              var pct       = base > 0 ? Math.min(100, Math.round((comprobados / base) * 100)) : 0;
+              var liquidado = base > 0 && saldo <= 0;
+              var fmt2 = window.fmtMoney || function(n){ return "$" + Number(n).toLocaleString("es-MX"); };
+              if (!base && !comprobados) return null;
+              return (
+                <div style={{ margin:"16px 20px 0", borderRadius:12,
+                  border:"1.5px solid " + (liquidado ? "#86efac" : "#bfdbfe"),
+                  background: liquidado ? "#f0fdf4" : "#f8faff", overflow:"hidden" }}>
+                  {/* Barra de progreso */}
+                  {base > 0 && (
+                    <div style={{ height:6, background:"#e2e8f0" }}>
+                      <div style={{ height:"100%", width: pct + "%",
+                        background: liquidado ? "#22c55e" : saldo < base * 0.3 ? "#3b82f6" : "#60a5fa",
+                        transition:"width .4s ease", borderRadius:"4px 0 0 4px" }} />
+                    </div>
+                  )}
+                  <div style={{ padding:"14px 16px" }}>
+                    <div style={{ fontSize:11, fontWeight:700, textTransform:"uppercase",
+                      letterSpacing:".06em", color:"var(--muted)", marginBottom:10 }}>
+                      Resumen de pago
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr auto", rowGap:7 }}>
+                      {/* Precio de venta */}
+                      {base > 0 && (<>
+                        <span style={{ fontSize:13, color:"var(--ink-2)" }}>
+                          {precio > 0 ? "Precio de venta" : "Precio de lista"}
+                        </span>
+                        <span style={{ fontSize:13, fontWeight:700, color:"var(--ink)", textAlign:"right" }}>
+                          {fmt2(base)}
+                        </span>
+                      </>)}
+                      {/* Total comprobado */}
+                      <span style={{ fontSize:13, color:"var(--ink-2)" }}>Total comprobado</span>
+                      <span style={{ fontSize:13, fontWeight:700,
+                        color: comprobados > 0 ? "#065f46" : "var(--muted)", textAlign:"right" }}>
+                        {comprobados > 0 ? fmt2(comprobados) : "—"}
+                      </span>
+                      {/* Línea separadora */}
+                      {base > 0 && comprobados > 0 && (<>
+                        <div style={{ gridColumn:"1/-1", height:1, background:"var(--line-2)", margin:"2px 0" }} />
+                        {/* Saldo */}
+                        <span style={{ fontSize:14, fontWeight:700,
+                          color: liquidado ? "#166534" : "#1e3a8a" }}>
+                          {liquidado ? "✓ Liquidado" : "Saldo pendiente"}
+                        </span>
+                        <span style={{ fontSize:15, fontWeight:800, textAlign:"right",
+                          color: liquidado ? "#166534" : "#1e3a8a" }}>
+                          {liquidado ? fmt2(0) : fmt2(saldo)}
+                        </span>
+                        {base > 0 && (
+                          <span style={{ gridColumn:"1/-1", fontSize:11, color:"var(--muted)", marginTop:1 }}>
+                            {pct}% pagado
+                            {!liquidado && comprobados === 0 && " · Agrega comprobantes para ver el saldo"}
+                          </span>
+                        )}
+                      </>)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <Sec ico="📂" titulo="Documentos de caja" defaultOpen>
               <div style={{ gridColumn:"1/-1" }}>
                 <DocSimpleUpload
@@ -3744,12 +3853,30 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
                   placeholder="Número de transferencia, cheque, etc." />
               </Fld>
               <Fld label="Monto pagado ($)">
-                <input type="number" className="ef-input"
-                  style={{ ...IS, fontWeight:700, color:"var(--accent)" }}
-                  min="0" step="100"
-                  value={form.pagoMonto || ""}
-                  onChange={e => set("pagoMonto", Number(e.target.value) || 0)}
-                  placeholder="0" />
+                {/* Muestra suma de comprobantes (si existe) o input manual */}
+                {(function(){
+                  var totalComp = (form.docComprobantes || []).reduce(function(s, it){ return s + (Number(it.monto)||0); }, 0);
+                  if (totalComp > 0) {
+                    return (
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <span style={{ fontSize:16, fontWeight:800, color:"var(--accent)" }}>
+                          ${Number(totalComp).toLocaleString("es-MX")}
+                        </span>
+                        <span style={{ fontSize:11, color:"var(--muted)" }}>
+                          suma de comprobantes
+                        </span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <input type="number" className="ef-input"
+                      style={{ ...IS, fontWeight:700, color:"var(--accent)" }}
+                      min="0" step="100"
+                      value={form.pagoMonto || ""}
+                      onChange={e => set("pagoMonto", Number(e.target.value) || 0)}
+                      placeholder="0" />
+                  );
+                })()}
               </Fld>
               <Fld label="Notas de pago" full>
                 <textarea className="ef-input"

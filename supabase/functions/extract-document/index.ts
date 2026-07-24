@@ -77,6 +77,19 @@ Omite cualquier campo que no sea claramente legible. Estructura esperada:
 IMPORTANTE: devuelve SOLO números para los montos (sin comas, puntos de miles, ni símbolo $).
 Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
 
+const PROMPT_COMPROBANTE = `Analiza este comprobante de pago (puede ser ficha de depósito, transferencia bancaria, recibo de caja, CFDI de pago, voucher de tarjeta, o cualquier documento que acredite un pago).
+Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con certeza.
+Omite cualquier campo que no sea claramente legible. Estructura esperada:
+{
+  "monto":      "monto total del pago en pesos mexicanos, SOLO dígitos sin comas ni símbolo $ (ej: 150000). Es el campo más importante — búscalo en 'TOTAL', 'IMPORTE', 'MONTO PAGADO', 'CANTIDAD'. Si hay múltiples montos, toma el total final.",
+  "fecha":      "fecha del pago en formato DD/MM/AAAA",
+  "referencia": "número de referencia, folio, número de operación, o número de transacción",
+  "banco":      "nombre del banco o institución emisora del comprobante",
+  "concepto":   "concepto o descripción del pago si aparece (ej: enganche vehículo, liquidación)"
+}
+IMPORTANTE: el campo 'monto' es crítico — devuelve SOLO el número, sin comas, puntos de miles ni símbolo $.
+Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
+
 const PROMPT_RFC = `Analiza esta Constancia de Situación Fiscal emitida por el SAT (México).
 Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con certeza.
 Omite cualquier campo que no sea legible. Estructura esperada:
@@ -100,7 +113,7 @@ Deno.serve(async (req: Request) => {
     const { dataUrl, mimeType, docType } = await req.json() as {
       dataUrl: string;
       mimeType: string;
-      docType: "id" | "domicilio" | "licencia" | "rfc" | "solicitud_credito";
+      docType: "id" | "domicilio" | "licencia" | "rfc" | "solicitud_credito" | "comprobante";
     };
 
     if (!dataUrl || !mimeType || !docType) {
@@ -117,10 +130,11 @@ Deno.serve(async (req: Request) => {
 
     // La clave de OpenAI está guardada bajo el nombre ANTHROPIC_API_KEY en Supabase Secrets
     const client = new OpenAI({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") ?? "" });
-    const prompt  = docType === "id"               ? PROMPT_ID
-                  : docType === "licencia"         ? PROMPT_LIC
-                  : docType === "rfc"              ? PROMPT_RFC
+    const prompt  = docType === "id"                ? PROMPT_ID
+                  : docType === "licencia"          ? PROMPT_LIC
+                  : docType === "rfc"               ? PROMPT_RFC
                   : docType === "solicitud_credito" ? PROMPT_SOLICITUD
+                  : docType === "comprobante"       ? PROMPT_COMPROBANTE
                   : PROMPT_DOM;
 
     const completion = await client.chat.completions.create({
