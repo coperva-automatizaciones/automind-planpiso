@@ -165,6 +165,13 @@ Deno.serve(async (req) => {
       autorizado = !!am;
     }
     if (!autorizado) {
+      // ¿Es super admin? — tiene acceso a cualquier workspace
+      const { data: sa } = await adminClient
+        .from("super_admins").select("user_id")
+        .eq("user_id", user.id).maybeSingle();
+      autorizado = !!sa;
+    }
+    if (!autorizado) {
       return new Response(JSON.stringify({ error: "Sin permisos sobre este workspace" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
