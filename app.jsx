@@ -24,10 +24,13 @@ function VehicleDrawer({ v, onClose, onEdit, onNuevoCliente, usuarioActual }) {
 
   if (!v) return null;
 
-  const c         = SEM[v.semaforo];
-  const restColor = v.diasLibresRestantes <= 0 ? SEM.intereses.sol
-                  : v.diasLibresRestantes <= 15 ? SEM.vencer.sol
-                  : SEM.saludable.sol;
+  // Vendedores no ven el estado "intereses" — se muestra como "vencer"
+  const esVend    = usuarioActual?.rol === "vendedor";
+  const semDrawer = (esVend && v.semaforo === "intereses") ? "vencer" : v.semaforo;
+  const c         = SEM[semDrawer];
+  const restColor = (esVend || v.diasLibresRestantes > 0)
+                  ? (v.diasLibresRestantes <= 15 ? SEM.vencer.sol : SEM.saludable.sol)
+                  : SEM.intereses.sol;
   const usuarios  = window.AUTOMIND ? window.AUTOMIND.USUARIOS || [] : [];
   const vendedor  = usuarios.find(u => u.id === vendedorId);
   const esAsignado = usuarioActual && vendedorId === usuarioActual.id;
@@ -69,12 +72,12 @@ function VehicleDrawer({ v, onClose, onEdit, onNuevoCliente, usuarioActual }) {
         </div>
 
         <div className="dr-status">
-          <Pill sk={v.semaforo} />
+          <Pill sk={semDrawer} />
           <span className="dr-status-txt">
-            {v.semaforo === "intereses"    ? "Ya genera interés — acción inmediata requerida."
-              : v.semaforo === "vencer"      ? "Próximo a vencer el plan de gracia."
-              : v.semaforo === "comprometido"? "Margen comprometido — vigilar de cerca."
-              : v.semaforo === "rotacion"    ? "Rotación media — sin urgencia inmediata."
+            {semDrawer === "intereses"    ? "Ya genera interés — acción inmediata requerida."
+              : semDrawer === "vencer"      ? "Próximo a vencer el plan de gracia."
+              : semDrawer === "comprometido"? "Margen comprometido — vigilar de cerca."
+              : semDrawer === "rotacion"    ? "Rotación media — sin urgencia inmediata."
               : "Saludable — dentro del plan de gracia."}
           </span>
         </div>
@@ -83,8 +86,10 @@ function VehicleDrawer({ v, onClose, onEdit, onNuevoCliente, usuarioActual }) {
         <div className="dr-grid">
           <div className="dr-stat"><span>Días en piso</span><b>{v.diasEnPiso}</b></div>
           <div className="dr-stat"><span>Días libres restantes</span>
-            <b style={{ color: v.diasLibresRestantes <= 0 ? SEM.intereses.sol : v.diasLibresRestantes <= 15 ? SEM.vencer.sol : "inherit" }}>
-              {v.diasLibresRestantes <= 0 ? "Vencido" : v.diasLibresRestantes + " días"}
+            <b style={{ color: restColor }}>
+              {v.diasLibresRestantes <= 0
+                ? (esVend ? "—" : "Vencido")
+                : v.diasLibresRestantes + " días"}
             </b>
           </div>
           {(!usuarioActual || usuarioActual.rol !== "vendedor") && (
@@ -790,6 +795,7 @@ function App() {
   return (
     <div className="shell">
       <Sidebar view={view} setView={handleSetView} onMenu={handleMenu} tablaActiva={tablaId} tenant={tenant}
+        usuarioActual={usuarioActual}
         onLogout={handleLogout}
         onSwitchToWorkspace={handleSwitchToWorkspace}
         mobileOpen={sidebarMobileOpen}

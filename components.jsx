@@ -143,7 +143,7 @@ const I = {
 };
 
 /* ---------- Sidebar ---------- */
-function Sidebar({ view, setView, onMenu, tablaActiva, tenant, onLogout, onSwitchWorkspace, onSwitchToWorkspace, mobileOpen, onMobileClose }) {
+function Sidebar({ view, setView, onMenu, tablaActiva, tenant, onLogout, onSwitchWorkspace, onSwitchToWorkspace, mobileOpen, onMobileClose, usuarioActual }) {
   const [open, setOpen] = React.useState(false);
   const [showAgSwitcher, setShowAgSwitcher] = React.useState(false);
   const act = (a) => { setOpen(false); onMenu && onMenu(a); onMobileClose && onMobileClose(); };
@@ -209,7 +209,9 @@ function Sidebar({ view, setView, onMenu, tablaActiva, tenant, onLogout, onSwitc
             <span className="nav-lbl">Inventario</span>
           </button>
           <Item id="importar" icon={I.upload({ width: 17, height: 17 })} label="Importar inventario" />
-          <Item id="alertas"  icon={I.bell({   width: 17, height: 17 })} label="Alertas" />
+          {(!usuarioActual || usuarioActual.rol !== "vendedor") && (
+            <Item id="alertas" icon={I.bell({ width: 17, height: 17 })} label="Alertas" />
+          )}
         </div>
 
         {/* ── Ventas ── */}

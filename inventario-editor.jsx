@@ -65,8 +65,10 @@ function toInputDate(d) {
 }
 
 /* ── Fila del panel izquierdo ───────────────────────────────────────────── */
-function VehicleListItem({ row, active, onClick }) {
-  const c = SEM[row.semaforo] || SEM.saludable;
+function VehicleListItem({ row, active, onClick, maskIntereses }) {
+  // Vendedores no ven el estado "intereses" — se muestra como "vencer"
+  const semKey = (maskIntereses && row.semaforo === "intereses") ? "vencer" : row.semaforo;
+  const c = SEM[semKey] || SEM.saludable;
   return (
     <button className={"vie-item" + (active ? " active" : "")} onClick={onClick}>
       <div className="vie-thumb">
@@ -373,6 +375,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
         <div className="inv-list-body">
           {filteredRows.map(r => (
             <VehicleListItem key={r.id} row={r} active={r.id === selId}
+              maskIntereses={esVendedor}
               onClick={() => {
                 if (dirty) {
                   if (!window.confirm("Tienes cambios sin guardar. ¿Descartar?")) return;
@@ -402,9 +405,11 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
                   onClick={() => alert(saveError)}
                   title="Click para ver detalle">⚠️ Error al guardar (click para detalles)</span>
               )}
-              <button className="btn primary" onClick={handleSave} disabled={!dirty || saving}>
-                {saving ? "Guardando…" : "Guardar cambios"}
-              </button>
+              {!esVendedor && (
+                <button className="btn primary" onClick={handleSave} disabled={!dirty || saving}>
+                  {saving ? "Guardando…" : "Guardar cambios"}
+                </button>
+              )}
               {!esVendedor && (
                 <button className="icon-btn ghost del-btn" title="Eliminar unidad" onClick={() => setShowDel(true)}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
@@ -425,11 +430,13 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
                 ? <img className="ef-foto-img" src={form.fotoUrl} alt="Foto vehículo" />
                 : <div className="ef-foto-ph">{I.truck({ width:36, height:36 })}<span>Sin foto</span></div>
               }
-              <label className="btn ef-foto-btn">
-                📎 {form.fotoUrl ? "Cambiar foto" : "Adjuntar foto"}
-                <input type="file" accept="image/*" style={{ display:"none" }} onChange={handleFoto} />
-              </label>
-              {form.fotoUrl && (
+              {!esVendedor && (
+                <label className="btn ef-foto-btn">
+                  📎 {form.fotoUrl ? "Cambiar foto" : "Adjuntar foto"}
+                  <input type="file" accept="image/*" style={{ display:"none" }} onChange={handleFoto} />
+                </label>
+              )}
+              {form.fotoUrl && !esVendedor && (
                 <button className="btn ef-foto-rm" onClick={() => set("fotoUrl", null)}>Quitar</button>
               )}
             </div>
@@ -439,7 +446,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
               <div className="ef-sec-head">{I.table({ width:15, height:15 })} Datos generales</div>
               <div className="ef-grid-2">
                 <FormField label="VIN" required>
-                  <input className="ef-input" value={form.vin || ""} onChange={e => set("vin", e.target.value.toUpperCase())} placeholder="17 caracteres" />
+                  <input className="ef-input" value={form.vin || ""} onChange={e => set("vin", e.target.value.toUpperCase())} placeholder="17 caracteres" readOnly={esVendedor} />
                 </FormField>
                 {!esVendedor && (
                   <FormField label="Estatus">
@@ -490,32 +497,32 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
                 </FormField>
 
                 <FormField label="INV">
-                  <input className="ef-input" type="number" value={form.inv || ""} onChange={e => set("inv", e.target.value)} />
+                  <input className="ef-input" type="number" value={form.inv || ""} onChange={e => set("inv", e.target.value)} readOnly={esVendedor} />
                 </FormField>
                 <FormField label="Año">
-                  <input className="ef-input" type="number" value={form.anio || 2026} onChange={e => set("anio", Number(e.target.value))} min="2000" max="2030" />
+                  <input className="ef-input" type="number" value={form.anio || 2026} onChange={e => set("anio", Number(e.target.value))} min="2000" max="2030" readOnly={esVendedor} />
                 </FormField>
                 <FormField label="Descripción" required>
-                  <input className="ef-input ef-span2" value={form.descripcion || ""} onChange={e => set("descripcion", e.target.value.toUpperCase())} placeholder="Ej. NUEVO GOLF GTI" />
+                  <input className="ef-input ef-span2" value={form.descripcion || ""} onChange={e => set("descripcion", e.target.value.toUpperCase())} placeholder="Ej. NUEVO GOLF GTI" readOnly={esVendedor} />
                 </FormField>
                 <FormField label="Tipo">
-                  <input className="ef-input" value={form.tipo || ""} onChange={e => set("tipo", e.target.value.toUpperCase())} placeholder="Ej. DA19ZZ" />
+                  <input className="ef-input" value={form.tipo || ""} onChange={e => set("tipo", e.target.value.toUpperCase())} placeholder="Ej. DA19ZZ" readOnly={esVendedor} />
                 </FormField>
                 <FormField label="Color Exterior">
-                  <select className="ef-input" value={form.colorExterior || ""} onChange={e => set("colorExterior", e.target.value)}>
+                  <select className="ef-input" value={form.colorExterior || ""} onChange={e => set("colorExterior", e.target.value)} disabled={esVendedor}>
                     <option value="">—</option>
                     {COLORES_EXT.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </FormField>
                 <FormField label="Color Interior">
-                  <select className="ef-input" value={form.colorInterior || ""} onChange={e => set("colorInterior", e.target.value)}>
+                  <select className="ef-input" value={form.colorInterior || ""} onChange={e => set("colorInterior", e.target.value)} disabled={esVendedor}>
                     <option value="">—</option>
                     {COLORES_INT.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </FormField>
                 <FormField label="Observaciones">
                   <textarea className="ef-input ef-textarea ef-span2" value={form.observaciones || ""}
-                    onChange={e => set("observaciones", e.target.value)} rows={2} />
+                    onChange={e => set("observaciones", e.target.value)} rows={2} readOnly={esVendedor} />
                 </FormField>
               </div>
             </div>
@@ -591,8 +598,8 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
               </div>
             )}
 
-            {/* ── Jerarquía (multi-vendedor) ────────────────────────────── */}
-            <JerarquiaSection
+            {/* ── Jerarquía (multi-vendedor) — solo gerente/director ──────── */}
+            {!esVendedor && <JerarquiaSection
               vendedorIds={form.vendedorIds || (form.vendedorId ? [form.vendedorId] : [])}
               usuarios={usuarios || []}
               onChange={vids => {
