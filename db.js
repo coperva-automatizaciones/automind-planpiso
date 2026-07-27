@@ -730,6 +730,10 @@
       pagoReferencia: row.pago_referencia   || "",
       pagoMonto:      Number(row.pago_monto) || 0,
       pagoNotas:      row.pago_notas        || "",
+      // Validación de pago (solo gerente / director / superadmin)
+      pagoValidado:    !!row.pago_validado,
+      pagoValidadoPor: row.pago_validado_por || "",
+      pagoValidadoEn:  row.pago_validado_en  || null,
       // Entrega
       entregaFecha:   row.entrega_fecha     || "",
       entregaKm:      row.entrega_km        || "",
@@ -866,6 +870,10 @@
       pago_referencia:  c.pagoReferencia || null,
       pago_monto:       Number(c.pagoMonto) || null,
       pago_notas:       c.pagoNotas      || null,
+      // Validación de pago
+      pago_validado:     !!c.pagoValidado,
+      pago_validado_por: c.pagoValidadoPor || null,
+      pago_validado_en:  c.pagoValidadoEn  || null,
       // Entrega
       entrega_fecha:    c.entregaFecha   || null,
       entrega_km:       c.entregaKm      || null,

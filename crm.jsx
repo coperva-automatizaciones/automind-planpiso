@@ -2354,6 +2354,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
   const [showUnitPicker, setShowUnitPicker] = React.useState(false);
   const [e8Subiendo, setE8Subiendo] = React.useState(false);
   const [e8ErrSub,   setE8ErrSub]   = React.useState('');
+  const [pagoValidando, setPagoValidando] = React.useState(false);
   const [tabActivo,       setTabActivo]       = React.useState("datos");
   const [historial,       setHistorial]       = React.useState([]);
   const [cargandoHist,    setCargandoHist]    = React.useState(false);
@@ -2368,6 +2369,13 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
 
   /* Solo gerente, director, superadmin y agencyOwner pueden eliminar clientes */
   const puedeEliminar = usuarioActual && (
+    usuarioActual.isSuperAdmin ||
+    usuarioActual.isAgencyOwner ||
+    usuarioActual.rol === "gerente" ||
+    usuarioActual.rol === "director"
+  );
+  /* Solo gerente, director, superadmin y agencyOwner pueden validar el pago */
+  const puedeValidarPago = usuarioActual && (
     usuarioActual.isSuperAdmin ||
     usuarioActual.isAgencyOwner ||
     usuarioActual.rol === "gerente" ||
@@ -2672,6 +2680,33 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
       return Object.assign({}, prev, upd);
     });
     setDirty(true);
+  }
+
+  /* Valida (o revoca) el pago — guarda inmediatamente, no requiere "Guardar cambios" */
+  async function handleValidarPago(validar) {
+    if (!form || !onUpdate) return;
+    setPagoValidando(true);
+    var quien = validar ? ((usuarioActual && usuarioActual.nombre) || "Gerente") : null;
+    var cuando = validar ? new Date().toISOString() : null;
+    var updatedForm = Object.assign({}, form, {
+      pagoValidado:    validar,
+      pagoValidadoPor: quien,
+      pagoValidadoEn:  cuando,
+    });
+    setForm(function(prev) {
+      return Object.assign({}, prev, {
+        pagoValidado:    validar,
+        pagoValidadoPor: quien,
+        pagoValidadoEn:  cuando,
+      });
+    });
+    try {
+      await onUpdate(updatedForm);
+    } catch(e) {
+      console.error("[CRM] Error al validar pago:", e);
+    } finally {
+      setPagoValidando(false);
+    }
   }
 
   /* Cargar historial cuando se abre el tab o cambia el cliente */
@@ -4192,6 +4227,83 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   placeholder="Observaciones del pago, condiciones especiales…" />
               </Fld>
             </Sec>
+
+            {/* ── Validación de pago (solo gerente / director / superadmin) ── */}
+            <Sec ico="🔐" titulo="Validación de pago" defaultOpen>
+              {form.pagoValidado ? (
+                /* ── Estado: validado ── */
+                <div style={{ gridColumn:"1/-1" }}>
+                  <div style={{
+                    padding:"14px 16px", borderRadius:10,
+                    border:"1.5px solid #86efac", background:"#f0fdf4",
+                    display:"flex", alignItems:"center", gap:12, flexWrap:"wrap",
+                  }}>
+                    <span style={{ fontSize:20 }}>✅</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:"#166534" }}>
+                        Pago validado
+                      </div>
+                      {form.pagoValidadoPor && (
+                        <div style={{ fontSize:12, color:"#16a34a", marginTop:2 }}>
+                          {form.pagoValidadoPor}
+                          {form.pagoValidadoEn && (
+                            " · " + new Date(form.pagoValidadoEn).toLocaleDateString("es-MX", {
+                              day:"2-digit", month:"short", year:"numeric",
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {puedeValidarPago && (
+                      <button type="button"
+                        onClick={() => handleValidarPago(false)}
+                        disabled={pagoValidando}
+                        style={{
+                          padding:"6px 14px", borderRadius:7, fontSize:12, fontWeight:600,
+                          border:"1px solid #dc2626", background:"transparent",
+                          color:"#dc2626", cursor:"pointer", opacity: pagoValidando ? .5 : 1,
+                        }}>
+                        {pagoValidando ? "..." : "Revocar"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* ── Estado: pendiente ── */
+                <div style={{ gridColumn:"1/-1" }}>
+                  {puedeValidarPago ? (
+                    <button type="button"
+                      onClick={() => handleValidarPago(true)}
+                      disabled={pagoValidando}
+                      style={{
+                        width:"100%", padding:"11px 0", borderRadius:9,
+                        border:"1.5px solid #16a34a",
+                        background: pagoValidando ? "#dcfce7" : "#f0fdf4",
+                        color:"#15803d", fontSize:14, fontWeight:700,
+                        cursor: pagoValidando ? "default" : "pointer",
+                        display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                        transition:"all .15s",
+                      }}>
+                      {pagoValidando
+                        ? <><span style={{ fontSize:16 }}>⏳</span> Validando…</>
+                        : <><span style={{ fontSize:16 }}>✅</span> Validar pago</>
+                      }
+                    </button>
+                  ) : (
+                    <div style={{
+                      padding:"11px 14px", borderRadius:9,
+                      border:"1px solid #fde68a", background:"#fffbeb",
+                      fontSize:13, color:"#92400e",
+                      display:"flex", alignItems:"center", gap:8,
+                    }}>
+                      <span style={{ fontSize:15 }}>⏳</span>
+                      Pendiente de validación por el gerente
+                    </div>
+                  )}
+                </div>
+              )}
+            </Sec>
+
             </>) /* fin tab pago */}
 
             {/* ══ TAB: ENTREGA ══ */}
