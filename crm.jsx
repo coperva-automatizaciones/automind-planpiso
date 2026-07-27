@@ -2551,7 +2551,8 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
         .join(" ").toLowerCase().includes(q.toLowerCase()))
     : clientes;
 
-  const asesoresOpc = [...new Set(clientes.map(c => c.asesor).filter(Boolean))];
+  // Vendedores del workspace para el selector de asesor
+  const vendedores = (window.AUTOMIND?.USUARIOS || []).filter(function(u){ return u.rol === "vendedor"; });
 
   const IS = {
     width:"100%", padding:"7px 10px", border:"1px solid var(--line)",
@@ -4225,7 +4226,8 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
               </Fld>
               <Fld label="Asesor asignado" full>
                 <select className="ef-select" style={IS} value={form.asesor || ""} onChange={e => set("asesor", e.target.value)}>
-                  {asesoresOpc.map(a => <option key={a}>{a}</option>)}
+                  <option value="">Sin asignar</option>
+                  {vendedores.map(v => <option key={v.id} value={v.id}>{v.nombre}</option>)}
                 </select>
               </Fld>
               <Fld label="Próxima acción" full>
@@ -4418,7 +4420,8 @@ function _NuevoCampo({ label, full, children }) {
    esto haría un INSERT contra la tabla `clientes` de Supabase.
    initialData: objeto opcional con prefill desde Plan Piso (vin, interes…) */
 function NuevoClienteModal({ onClose, onCreate, onRecompra, clientes, asesores, initialData }) {
-  const asesorOpciones = asesores.filter(a => a !== "Todos");
+  // Usar vendedores del workspace en lugar de los extraídos de clientes existentes
+  const asesorOpciones = (window.AUTOMIND?.USUARIOS || []).filter(function(u){ return u.rol === "vendedor"; });
   const ini = initialData || {};
   const [f, setF] = React.useState({
     nombre:"", tel:"", email:"", tipo:"Persona física",
@@ -4427,7 +4430,7 @@ function NuevoClienteModal({ onClose, onCreate, onRecompra, clientes, asesores, 
     interes:      ini.interes      || "",
     presupuesto:  ini.presupuesto  || "",
     formaPago:"No definido", uso:"Personal", ciudad:"", estado:"",
-    asesor: ini.asesor && asesorOpciones.includes(ini.asesor) ? ini.asesor : (asesorOpciones[0] || ""),
+    asesor: ini.asesor && asesorOpciones.find(function(v){ return v.id === ini.asesor; }) ? ini.asesor : "",
     vinVinculado:  ini.vinVinculado  || "",
     inventarioId:  ini.inventarioId  || null,
   });
@@ -4612,7 +4615,8 @@ function NuevoClienteModal({ onClose, onCreate, onRecompra, clientes, asesores, 
           </Campo>
           <Campo label="Asesor asignado" full>
             <select style={inputStyle} value={f.asesor} onChange={set("asesor")}>
-              {asesorOpciones.map(o => <option key={o}>{o}</option>)}
+              <option value="">Sin asignar</option>
+              {asesorOpciones.map(v => <option key={v.id} value={v.id}>{v.nombre}</option>)}
             </select>
           </Campo>
         </div>
