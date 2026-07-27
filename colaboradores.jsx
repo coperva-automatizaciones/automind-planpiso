@@ -651,6 +651,11 @@ function Colaboradores({ usuarios: usuariosInit, rows, usuarioActual, autoOpenFo
         />
       )}
 
+      {/* ── Aviso de Privacidad (solo directores / owners) ── */}
+      {puedeEliminar && (
+        <AvisoAdminCard agencyId={agencyId} />
+      )}
+
       {/* Modal confirmación eliminar */}
       {confirmDel && (
         <>
@@ -687,6 +692,111 @@ function Colaboradores({ usuarios: usuariosInit, rows, usuarioActual, autoOpenFo
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ── Tarjeta admin del Aviso de Privacidad ─────────────────────────────── */
+function AvisoAdminCard({ agencyId }) {
+  var [nombreActual, setNombreActual] = React.useState(
+    (window.AUTOMIND && window.AUTOMIND.avisoNombre) || null
+  );
+  var [subiendo,    setSubiendo]    = React.useState(false);
+  var [descargando, setDescargando] = React.useState(false);
+  var [ok,          setOk]          = React.useState(false);
+  var inputRef = React.useRef(null);
+
+  async function descargar() {
+    setDescargando(true);
+    try {
+      var res = await window.DB.getAvisoSignedUrl(agencyId);
+      if (res && res.url) window.open(res.url, "_blank");
+      else alert("No hay aviso cargado todavía. Usa el botón 'Subir aviso' para cargarlo.");
+    } catch(e) { alert("Error al descargar: " + (e.message || e)); }
+    finally { setDescargando(false); }
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    var ext = (file.name || "").split(".").pop().toLowerCase();
+    var permitidos = ["pdf", "docx", "doc"];
+    if (!permitidos.includes(ext)) { alert("Solo se permiten archivos PDF o Word (.docx/.doc)."); return; }
+    setSubiendo(true); setOk(false);
+    try {
+      var res = await window.DB.saveWorkspaceAviso(agencyId, file);
+      setNombreActual(res.nombre);
+      if (window.AUTOMIND) window.AUTOMIND.avisoNombre = res.nombre;
+      setOk(true);
+      setTimeout(function(){ setOk(false); }, 3000);
+    } catch(e) { alert("Error al subir el aviso: " + (e.message || e)); }
+    finally { setSubiendo(false); }
+  }
+
+  return (
+    <div style={{
+      marginTop:28, border:"1px solid var(--line)", borderRadius:12,
+      background:"var(--card)", overflow:"hidden",
+    }}>
+      {/* Header */}
+      <div style={{
+        padding:"14px 20px", borderBottom:"1px solid var(--line)",
+        display:"flex", alignItems:"center", gap:10,
+        background:"var(--bg)",
+      }}>
+        <span style={{ fontSize:18 }}>🔒</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"var(--ink)" }}>Aviso de Privacidad de la agencia</div>
+          <div style={{ fontSize:12, color:"var(--muted)", marginTop:1 }}>
+            Este documento se muestra a todos los clientes en el tab de Perfilamiento.
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:12 }}>
+        {/* Archivo actual */}
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:12, color:"var(--muted)" }}>Versión activa:</span>
+          <span style={{
+            fontSize:12, fontWeight:600, color:"var(--ink)",
+            padding:"2px 10px", borderRadius:12,
+            background: nombreActual ? "#dbeafe" : "#f3f4f6",
+            color: nombreActual ? "#1d4ed8" : "#6b7280",
+          }}>
+            {nombreActual || "Genérico (predeterminado)"}
+          </span>
+          {ok && (
+            <span style={{ fontSize:12, color:"#059669", fontWeight:600 }}>✓ Guardado</span>
+          )}
+        </div>
+
+        {/* Acciones */}
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button type="button" onClick={descargar} disabled={descargando}
+            style={{ fontSize:12, fontWeight:600, padding:"7px 14px", borderRadius:7,
+              border:"1px solid var(--line)", background:"var(--card)", color:"var(--ink)",
+              cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+              opacity: descargando ? .5 : 1 }}>
+            <span>⬇</span> {descargando ? "Descargando…" : "Ver / Descargar actual"}
+          </button>
+
+          <button type="button" onClick={function(){ inputRef.current && inputRef.current.click(); }}
+            disabled={subiendo}
+            style={{ fontSize:12, fontWeight:600, padding:"7px 14px", borderRadius:7,
+              border:"none", background:"var(--accent)", color:"#fff",
+              cursor:"pointer", display:"flex", alignItems:"center", gap:5,
+              opacity: subiendo ? .5 : 1 }}>
+            <span>⬆</span> {subiendo ? "Subiendo…" : nombreActual ? "Reemplazar aviso" : "Subir aviso personalizado"}
+          </button>
+          <input ref={inputRef} type="file" accept=".pdf,.docx,.doc"
+            style={{ display:"none" }}
+            onChange={function(e){ var f = e.target.files && e.target.files[0]; e.target.value=""; handleFile(f); }} />
+        </div>
+
+        <div style={{ fontSize:11, color:"var(--muted)" }}>
+          Formatos aceptados: PDF, DOCX, DOC · El archivo se sube a storage y es descargable por todos los vendedores.
+        </div>
+      </div>
     </div>
   );
 }

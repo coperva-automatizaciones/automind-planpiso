@@ -309,6 +309,7 @@ function buildAUTOMIND(agency, rowsEnriquecidas, usuariosEnriquecidos, parentAge
     TABLAS: _tablas(rowsEnriquecidas, usuariosEnriquecidos),
     agencyId:       agency.id,           // workspace ID (para inventario, usuarios)
     agencyParentId: parentAgencyId || agency.agency_id || agency.id, // agencia raíz (Coperva)
+    avisoNombre:    agency.avisoPrivacidadNombre || null, // nombre del aviso personalizado
     enrichRowVendedor: (row, uList) => {
       const vids=Array.isArray(row.vendedorIds)&&row.vendedorIds.length>0?row.vendedorIds:(row.vendedorId?[row.vendedorId]:[]);
       const vd=vids.length>0?(uList.find(u=>u.id===vids[0])||null):null;

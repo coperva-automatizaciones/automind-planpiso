@@ -260,6 +260,8 @@
       iniciales: workspace.iniciales || (workspace.nombre||workspace.name||"WS").slice(0,2).toUpperCase(),
       accent:    workspace.accent   || "#2f6fed",
       sidebar:   workspace.sidebar  || "#1b2a57",
+      avisoPrivacidadKey:    workspace.aviso_privacidad_key    || null,
+      avisoPrivacidadNombre: workspace.aviso_privacidad_nombre || null,
     };
 
     return { agency, me, usuarios: usuarios||[], rows: rows||[] };
@@ -694,6 +696,7 @@
       docLicencia: row.doc_lic_key ? { name: row.doc_lic_nombre || "", storageKey: row.doc_lic_key } : null,
       docDomicilio:row.doc_dom_key ? { name: row.doc_dom_nombre || "", storageKey: row.doc_dom_key } : null,
       docRfc:           row.doc_rfc_key      ? { name: row.doc_rfc_nombre      || "", storageKey: row.doc_rfc_key      } : null,
+      docAviso:         row.doc_aviso_key    ? { name: row.doc_aviso_nombre    || "", storageKey: row.doc_aviso_key    } : null,
       docEvidenciaPrueba:  row.doc_ev_prueba_key        ? { name: row.doc_ev_prueba_nombre        || "", storageKey: row.doc_ev_prueba_key        } : null,
       docEncuestaPrueba:   row.doc_encuesta_prueba_key  ? { name: row.doc_encuesta_prueba_nombre  || "", storageKey: row.doc_encuesta_prueba_key  } : null,
       docFactura:     row.doc_factura_key    ? { name: row.doc_factura_nombre    || "", storageKey: row.doc_factura_key    } : null,
@@ -828,6 +831,8 @@
       doc_dom_nombre: c.docDomicilio? (c.docDomicilio.name      || null) : null,
       doc_rfc_key:       c.docRfc           ? (c.docRfc.storageKey           || null) : null,
       doc_rfc_nombre:    c.docRfc           ? (c.docRfc.name                || null) : null,
+      doc_aviso_key:     c.docAviso         ? (c.docAviso.storageKey        || null) : null,
+      doc_aviso_nombre:  c.docAviso         ? (c.docAviso.name              || null) : null,
       doc_ev_prueba_key:           c.docEvidenciaPrueba ? (c.docEvidenciaPrueba.storageKey  || null) : null,
       doc_ev_prueba_nombre:        c.docEvidenciaPrueba ? (c.docEvidenciaPrueba.name         || null) : null,
       doc_encuesta_prueba_key:     c.docEncuestaPrueba  ? (c.docEncuestaPrueba.storageKey   || null) : null,
@@ -1184,6 +1189,45 @@
     console.log("Para más detalle, corre supabase_test_superadmin_perms.sql en Supabase SQL Editor");
   }
 
+  /* ── Aviso de Privacidad ──────────────────────────────────── */
+
+  const AVISO_DEFAULT_KEY = "privacidad/aviso_privacidad_generico.docx";
+
+  async function getAvisoSignedUrl(workspaceId) {
+    var key = null;
+    try {
+      var { data: ws } = await client.from("workspaces").select("aviso_privacidad_key").eq("id", workspaceId).maybeSingle();
+      if (ws && ws.aviso_privacidad_key) key = ws.aviso_privacidad_key;
+    } catch(e) {}
+    if (!key) {
+      try {
+        var { data: ag } = await client.from("agencies").select("aviso_privacidad_key").eq("id", workspaceId).maybeSingle();
+        if (ag && ag.aviso_privacidad_key) key = ag.aviso_privacidad_key;
+      } catch(e) {}
+    }
+    var resolvedKey = key || AVISO_DEFAULT_KEY;
+    var { data } = await client.storage.from("expedientes").createSignedUrl(resolvedKey, 3600);
+    return { url: data && data.signedUrl ? data.signedUrl : null, isDefault: !key, key: resolvedKey };
+  }
+
+  async function saveWorkspaceAviso(workspaceId, file) {
+    var ext = (file.name || "aviso").split(".").pop().toLowerCase();
+    var key = "privacidad/" + workspaceId + "/" + Date.now() + "-aviso." + ext;
+    var { error: upErr } = await client.storage.from("expedientes").upload(key, file, { contentType: file.type, upsert: true });
+    if (upErr) throw upErr;
+    // Intentar workspaces primero, si no afecta ninguna fila → intentar agencies
+    var { data: wsData, error: wsErr } = await client.from("workspaces")
+      .update({ aviso_privacidad_key: key, aviso_privacidad_nombre: file.name })
+      .eq("id", workspaceId).select("id");
+    if (wsErr || !wsData || wsData.length === 0) {
+      var { error: agErr } = await client.from("agencies")
+        .update({ aviso_privacidad_key: key, aviso_privacidad_nombre: file.name })
+        .eq("id", workspaceId);
+      if (agErr) throw agErr;
+    }
+    return { key, nombre: file.name };
+  }
+
   /* ── Exponer en window ─────────────────────────────────────── */
   window.DB = {
     client,
@@ -1219,6 +1263,8 @@
     getClienteHistorial,
     addClienteHistorial,
     testSuperAdminPerms,
+    getAvisoSignedUrl,
+    saveWorkspaceAviso,
     storage: client.storage,
   };
 })();

@@ -2194,6 +2194,107 @@ function ExpedienteHeader({ form, onChangeEstado }) {
   );
 }
 
+/* ── Sección Aviso de Privacidad (tab Perfilamiento) ─────────────────────── */
+function AvisoPrivacidadSection({ form, set }) {
+  var [descargando, setDescargando] = React.useState(false);
+  var [subiendo,    setSubiendo]    = React.useState(false);
+  var inputRef = React.useRef(null);
+  var aviso = form.docAviso; // { name, storageKey } | null
+  var firmado = !!(aviso && aviso.storageKey);
+
+  async function descargar() {
+    setDescargando(true);
+    try {
+      var wId = window.AUTOMIND && window.AUTOMIND.agencyId;
+      var res  = await window.DB.getAvisoSignedUrl(wId);
+      if (res && res.url) { window.open(res.url, "_blank"); }
+      else { alert("No se encontró el aviso de privacidad. Pide al administrador que lo suba en la sección Equipo."); }
+    } catch(e) { alert("Error al descargar el aviso: " + (e.message || e)); }
+    finally { setDescargando(false); }
+  }
+
+  async function verFirmado() {
+    if (!aviso || !aviso.storageKey) return;
+    try {
+      var res = await window.DB.storage.from("expedientes").createSignedUrl(aviso.storageKey, 600);
+      if (res.data && res.data.signedUrl) window.open(res.data.signedUrl, "_blank");
+    } catch(e) { alert("No se pudo abrir el archivo."); }
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    var ext = (file.name || "").split(".").pop().toLowerCase();
+    var permitidos = ["pdf", "docx", "doc", "jpg", "jpeg", "png"];
+    if (!permitidos.includes(ext)) { alert("Formato no permitido. Usa PDF, DOCX o imagen."); return; }
+    setSubiendo(true);
+    try {
+      var key = "clientes/avisos/" + Date.now() + "-" + Math.random().toString(36).slice(2,6) + "." + ext;
+      var { error } = await window.DB.storage.from("expedientes").upload(key, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      set("docAviso", { name: file.name, storageKey: key });
+    } catch(e) { alert("Error al subir el aviso: " + (e.message || e)); }
+    finally { setSubiendo(false); }
+  }
+
+  var btnBase = {
+    fontSize: 12, fontWeight: 600, padding: "6px 14px", borderRadius: 7,
+    cursor: "pointer", border: "1px solid var(--line)", background: "var(--card)",
+    color: "var(--ink)", display: "flex", alignItems: "center", gap: 5,
+    transition: "opacity .12s",
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+      {/* Status */}
+      <div>
+        <span style={{
+          display:"inline-flex", alignItems:"center", gap:6,
+          padding:"4px 14px", borderRadius:20, fontSize:12, fontWeight:700,
+          background: firmado ? "#d1fae5" : "#fff7ed",
+          color: firmado ? "#059669" : "#b45309",
+        }}>
+          {firmado ? "✓ Aviso firmado por el cliente" : "⏳ Pendiente de firma del cliente"}
+        </span>
+      </div>
+
+      {/* Acciones */}
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <button type="button" onClick={descargar} disabled={descargando}
+          style={{ ...btnBase, opacity: descargando ? .5 : 1 }}>
+          {descargando
+            ? <><span style={{fontSize:13}}>⏳</span> Descargando…</>
+            : <><span style={{fontSize:13}}>⬇</span> Descargar aviso plantilla</>}
+        </button>
+
+        {firmado && (
+          <button type="button" onClick={verFirmado}
+            style={{ ...btnBase, borderColor:"#059669", color:"#059669" }}>
+            <span style={{fontSize:13}}>📄</span> Ver aviso firmado
+          </button>
+        )}
+
+        <button type="button" onClick={function(){ inputRef.current && inputRef.current.click(); }}
+          disabled={subiendo}
+          style={{ ...btnBase, background:"var(--accent)", color:"#fff", border:"none",
+            opacity: subiendo ? .5 : 1 }}>
+          {subiendo
+            ? <><span style={{fontSize:13}}>⏳</span> Subiendo…</>
+            : <><span style={{fontSize:13}}>⬆</span> {firmado ? "Reemplazar aviso firmado" : "Cargar aviso firmado"}</>}
+        </button>
+        <input ref={inputRef} type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+          style={{ display:"none" }}
+          onChange={function(e){ var f = e.target.files && e.target.files[0]; e.target.value = ""; handleFile(f); }} />
+      </div>
+
+      {firmado && (
+        <div style={{ fontSize:11, color:"var(--muted)" }}>
+          Archivo: <strong style={{color:"var(--ink)"}}>{aviso.name}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Motor de auto-avance de etapa ──────────────────────────────────────── */
 function calcularEtapaSugerida(f) {
   if (!f) return null;
@@ -3061,6 +3162,11 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   {["Personal","Trabajo","Familiar"].map(o => <option key={o}>{o}</option>)}
                 </select>
               </Fld>
+            </Sec>
+
+            {/* ══ AVISO DE PRIVACIDAD ══ */}
+            <Sec ico="🔒" titulo="Aviso de Privacidad" defaultOpen>
+              <AvisoPrivacidadSection form={form} set={set} />
             </Sec>
 
             {/* ══ ENCUESTA DE PREFERENCIAS DEL CLIENTE (8.1-8.12) ══ */}
