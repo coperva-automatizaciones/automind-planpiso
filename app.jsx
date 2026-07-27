@@ -513,6 +513,38 @@ function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  // ── Auto-asignar todos los vendedores a unidades sin asignación ──────────
+  // Corre en background cada vez que se carga un workspace (tenant?.id cambia).
+  // Corrige datos legacy o unidades importadas antes de que existiera esta lógica.
+  React.useEffect(() => {
+    if (!tenant?.id || !window.DB || !window.AUTOMIND) return;
+    const A = window.AUTOMIND;
+    const todosVendedores = (A.USUARIOS || [])
+      .filter(function(u) { return u.rol === "vendedor"; })
+      .map(function(u)    { return u.id; });
+    if (!todosVendedores.length) return;
+    const sinAsignar = (A.ROWS || []).filter(function(r) {
+      const ids = Array.isArray(r.vendedorIds) ? r.vendedorIds.filter(Boolean) : [];
+      return ids.length === 0;
+    });
+    if (!sinAsignar.length) return;
+    // Actualizar en memoria inmediatamente para reflejar el cambio en la UI
+    sinAsignar.forEach(function(r) {
+      r.vendedorIds = todosVendedores;
+      r.vendedorId  = todosVendedores[0];
+    });
+    setRowsVersion(function(v) { return v + 1; });
+    // Persistir en BD en background — sin bloquear la UI
+    Promise.allSettled(
+      sinAsignar.map(function(r) { return window.DB.saveVehicle(A.agencyId, r); })
+    ).then(function(results) {
+      var ok  = results.filter(function(r) { return r.status === "fulfilled"; }).length;
+      var err = results.filter(function(r) { return r.status === "rejected"; }).length;
+      if (ok  > 0) console.log("[autoHeal] " + ok + " unidad(es) asignadas a todos los vendedores.");
+      if (err > 0) console.warn("[autoHeal] " + err + " unidad(es) no se pudieron guardar en BD.");
+    });
+  }, [tenant?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cambiar a otro workspace del mismo usuario
   const handleSwitchToWorkspace = React.useCallback(async (wsId) => {
     try {
