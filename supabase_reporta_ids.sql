@@ -12,7 +12,7 @@ ALTER TABLE public.users
 -- 2. Migrar datos existentes de reporta_a → reporta_ids
 --    Solo para filas que ya tienen reporta_a y reporta_ids aún vacío
 UPDATE public.users
-   SET reporta_ids = ARRAY[reporta_a]
+   SET reporta_ids = ARRAY[reporta_a::uuid]
  WHERE reporta_a IS NOT NULL
    AND (reporta_ids IS NULL OR reporta_ids = '{}');
 

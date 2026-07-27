@@ -700,6 +700,7 @@
       docEvidenciaPrueba:  row.doc_ev_prueba_key        ? { name: row.doc_ev_prueba_nombre        || "", storageKey: row.doc_ev_prueba_key        } : null,
       docEncuestaPrueba:   row.doc_encuesta_prueba_key  ? { name: row.doc_encuesta_prueba_nombre  || "", storageKey: row.doc_encuesta_prueba_key  } : null,
       docFactura:     row.doc_factura_key    ? { name: row.doc_factura_nombre    || "", storageKey: row.doc_factura_key    } : null,
+      docCotizacion:  row.doc_cotizacion_key ? { name: row.doc_cotizacion_nombre || "", storageKey: row.doc_cotizacion_key } : null,
       docComprobantes: (function() {
         // Nuevo: leer del JSONB array
         if (row.doc_comprobantes) {
@@ -839,6 +840,8 @@
       doc_encuesta_prueba_nombre:  c.docEncuestaPrueba  ? (c.docEncuestaPrueba.name          || null) : null,
       doc_factura_key:         c.docFactura    ? (c.docFactura.storageKey    || null) : null,
       doc_factura_nombre:      c.docFactura    ? (c.docFactura.name          || null) : null,
+      doc_cotizacion_key:      c.docCotizacion ? (c.docCotizacion.storageKey || null) : null,
+      doc_cotizacion_nombre:   c.docCotizacion ? (c.docCotizacion.name       || null) : null,
       doc_comprobantes: (c.docComprobantes && c.docComprobantes.length > 0)
         ? JSON.stringify(c.docComprobantes.map(function(it) {
             return { name: it.name || "", storageKey: it.storageKey || null, monto: it.monto != null ? it.monto : null };

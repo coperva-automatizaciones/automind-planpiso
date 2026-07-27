@@ -2498,13 +2498,14 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
       /* ── Subir documentos pendientes a Storage antes de guardar ── */
       var formToSave = Object.assign({}, form, { _prev: { etapa: form.etapa, estadoGeneral: form.estadoGeneral, asesor: form.asesor } });
       var docCampos = [
-        { key:"docFactura",        label:"Factura"    },
-        { key:"docId",             label:"INE"        },
-        { key:"docLicencia",       label:"Licencia"   },
-        { key:"docDomicilio",      label:"Domicilio"  },
-        { key:"docRfc",            label:"RFC"        },
-        { key:"docEvidenciaPrueba", label:"Ev.Prueba"  },
-      { key:"docEncuestaPrueba",  label:"Encuesta"   },
+        { key:"docFactura",        label:"Factura"       },
+        { key:"docCotizacion",     label:"Cotización"    },
+        { key:"docId",             label:"INE"           },
+        { key:"docLicencia",       label:"Licencia"      },
+        { key:"docDomicilio",      label:"Domicilio"     },
+        { key:"docRfc",            label:"RFC"           },
+        { key:"docEvidenciaPrueba", label:"Ev.Prueba"    },
+        { key:"docEncuestaPrueba",  label:"Encuesta"     },
       ];
       for (var i = 0; i < docCampos.length; i++) {
         var dc  = docCampos[i];
@@ -2632,10 +2633,39 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
         if (meses)     upd.plazoMeses = meses;
         if (extractedCampos.institucion && !prev.e6Institucion) upd.e6Institucion = extractedCampos.institucion;
       }
+      if (fuente === "cotizacion") {
+        /* Parsear montos de la cotización — fuente de verdad para la validación de comprobantes */
+        function _parseMontoC(v) {
+          if (!v) return 0;
+          var n = Number(String(v).replace(/[$,]/g, "").trim());
+          return isNaN(n) ? 0 : Math.round(n);
+        }
+        var pv = extractedCampos.precioVenta ? _parseMontoC(extractedCampos.precioVenta) : 0;
+        var pl = extractedCampos.precioLista ? _parseMontoC(extractedCampos.precioLista) : 0;
+        var dm = extractedCampos.descuento   ? _parseMontoC(extractedCampos.descuento)   : 0;
+        // precioVenta de la cotización es el precio definitivo (incluye IVA + accesorios)
+        if (pv > 0) upd.precioVenta = pv;
+        if (pl > 0) {
+          upd.precioLista = pl;
+          // Si no hay descuento explícito, derivarlo de la diferencia
+          if (dm <= 0 && pv > 0) upd.descuentoMonto = Math.max(0, pl - pv);
+        } else if (pv > 0) {
+          // Sin precio de lista explícito, igualarlo al precio de venta
+          upd.precioLista = pv;
+          upd.descuentoMonto = 0;
+        }
+        if (dm > 0) upd.descuentoMonto = dm;
+        // Recalcular mensualidad si hay plazo configurado
+        var pvFinal = pv || Number(prev.precioVenta) || 0;
+        var plazo   = Number(prev.plazoMeses) || 0;
+        var eng     = Number(prev.enganche)   || 0;
+        if (plazo > 0 && pvFinal > 0) upd.mensualidadEst = Math.round((pvFinal - eng) / plazo);
+      }
       // Guardar todos los datos crudos para referencia
       var clave = fuente === "id"               ? "datosId"
                 : fuente === "licencia"         ? "datosLicencia"
                 : fuente === "rfc"              ? "datosRfc"
+                : fuente === "cotizacion"       ? "datosCotizacion"
                 : fuente === "solicitud_credito" ? "datosSolicitudCredito"
                 : "datosDomicilio";
       upd[clave] = extractedCampos;
@@ -3429,6 +3459,26 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                       }}>✕</button>
                   )}
                 </div>
+              </Fld>
+
+              {/* ── Cotización oficial: sube el PDF/imagen para actualizar precios vía IA ── */}
+              <Fld label="Cotización oficial" full>
+                <DocUpload
+                  label="Cotización de la agencia"
+                  sublabel="IA extrae el precio de venta final (IVA + accesorios)"
+                  docType="cotizacion"
+                  value={form.docCotizacion || null}
+                  onChange={v => set("docCotizacion", v)}
+                  onExtract={campos => aplicarCampos(campos, "cotizacion")} />
+                {form.docCotizacion && form.precioVenta > 0 && (
+                  <div style={{
+                    marginTop:6, fontSize:11, fontWeight:600, color:"#16a34a",
+                    display:"flex", alignItems:"center", gap:4,
+                  }}>
+                    ✓ Precio de venta tomado de la cotización:&nbsp;
+                    <span>${Number(form.precioVenta).toLocaleString("es-MX")}</span>
+                  </div>
+                )}
               </Fld>
 
               <Fld label="Precio de lista ($)">

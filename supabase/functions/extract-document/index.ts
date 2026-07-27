@@ -90,6 +90,19 @@ Omite cualquier campo que no sea claramente legible. Estructura esperada:
 IMPORTANTE: el campo 'monto' es crítico — devuelve SOLO el número, sin comas, puntos de miles ni símbolo $.
 Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
 
+const PROMPT_COTIZACION = `Analiza esta cotización de vehículo (puede ser cotización formal de agencia, hoja de oferta, formato de la plataforma de la agencia, o cualquier documento que establezca el precio de un vehículo incluyendo IVA y accesorios).
+Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con certeza.
+Omite cualquier campo que no sea claramente legible. Estructura esperada:
+{
+  "precioVenta":   "precio de venta total a pagar incluyendo IVA y accesorios, SOLO dígitos sin comas ni símbolo $ (ej: 468800). Si el documento muestra un precio 'total', 'precio final', 'precio con IVA' o 'precio de oferta', este es el campo. Si hay un solo precio relevante en el documento, úsalo aquí.",
+  "precioLista":   "precio de lista o precio base del vehículo antes de descuentos e IVA, SOLO dígitos sin comas ni símbolo $ (ej: 400000) — omite si no aparece explícitamente como precio base o precio de lista",
+  "descuento":     "monto de descuento aplicado en pesos, SOLO dígitos (ej: 5000) — omite si no hay descuento explícito",
+  "modelo":        "nombre del modelo del vehículo (ej: Tiguan, Jetta, Hilux) — omite si no aparece",
+  "version":       "versión o trim del vehículo (ej: Highline, Sport, Limited) — omite si no aparece"
+}
+IMPORTANTE: los montos deben ser SOLO números, sin comas, puntos de miles ni símbolo $. 'precioVenta' es el campo crítico — captura el precio total definitivo que el cliente debe pagar.
+Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
+
 const PROMPT_RFC = `Analiza esta Constancia de Situación Fiscal emitida por el SAT (México).
 Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con certeza.
 Omite cualquier campo que no sea legible. Estructura esperada:
@@ -113,7 +126,7 @@ Deno.serve(async (req: Request) => {
     const { dataUrl, mimeType, docType } = await req.json() as {
       dataUrl: string;
       mimeType: string;
-      docType: "id" | "domicilio" | "licencia" | "rfc" | "solicitud_credito" | "comprobante";
+      docType: "id" | "domicilio" | "licencia" | "rfc" | "solicitud_credito" | "comprobante" | "cotizacion";
     };
 
     if (!dataUrl || !mimeType || !docType) {
@@ -135,6 +148,7 @@ Deno.serve(async (req: Request) => {
                   : docType === "rfc"               ? PROMPT_RFC
                   : docType === "solicitud_credito" ? PROMPT_SOLICITUD
                   : docType === "comprobante"       ? PROMPT_COMPROBANTE
+                  : docType === "cotizacion"        ? PROMPT_COTIZACION
                   : PROMPT_DOM;
 
     const completion = await client.chat.completions.create({
