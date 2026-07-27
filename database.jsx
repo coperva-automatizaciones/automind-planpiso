@@ -42,6 +42,7 @@ function Grid({ tabla, openVehicle, usuarioActual }) {
   const [selectedIds, setSelectedIds] = React.useState(new Set());
   const [bulkConfirm, setBulkConfirm] = React.useState(false);
   const [bulkWord,    setBulkWord]    = React.useState("");
+  const [renderKey,   setRenderKey]   = React.useState(0);
   const inputRef = React.useRef();
 
   React.useEffect(() => {
@@ -100,6 +101,7 @@ function Grid({ tabla, openVehicle, usuarioActual }) {
     if (tab) tab.rows = A.ROWS;
     setSelectedIds(new Set());
     setSel({ r: 0, c: 0 });
+    setRenderKey(k => k + 1);
     if (errores) alert(`${errores} registro(s) no pudieron eliminarse. Intenta de nuevo.`);
   }
 
@@ -325,8 +327,10 @@ function Grid({ tabla, openVehicle, usuarioActual }) {
                   {tabla.fichas && <span className="rn-exp">{I.arrowUR({ width: 12, height: 12 })}</span>}
                 </td>
                 {puedeEliminarMasivo && (
-                  <td className="chk-col" onClick={e => toggleSelect(r.id, e)}>
-                    <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                  <td className="chk-col" onClick={e => { e.stopPropagation(); toggleSelect(r.id); }}>
+                    <input type="checkbox" checked={selectedIds.has(r.id)}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => { e.stopPropagation(); toggleSelect(r.id); }} />
                   </td>
                 )}
                 {cols.map((c, ci) => {
