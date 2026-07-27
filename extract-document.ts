@@ -118,23 +118,53 @@ const PROMPT_RFC = `Analiza esta Constancia de Situación Fiscal del SAT (Méxic
 Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con TOTAL certeza.
 Si un campo no es legible o no aparece, omítelo completamente del JSON.
 
-REGLAS ESTRICTAS POR CAMPO:
+════════════════════════════════════════
+CAMPO CRÍTICO: rfc
+════════════════════════════════════════
+El RFC aparece SIEMPRE etiquetado como "RFC:" en la parte superior de la Constancia.
+CÓPIALO EXACTAMENTE carácter por carácter tal como está impreso. NUNCA lo construyas ni derives del nombre o fecha.
+Sin espacios, guiones ni caracteres especiales.
 
-rfc: El RFC mexicano NO tiene espacios ni guiones.
-  Persona física: EXACTAMENTE 13 caracteres. Formato: 4 letras + 6 dígitos (YYMMDD) + 3 alfanuméricos. Ejemplo: GOMC850101AB3
-  Persona moral:  EXACTAMENTE 12 caracteres. Formato: 3 letras + 6 dígitos + 3 alfanuméricos. Ejemplo: GOM850101AB3
-  ⚠ Errores OCR frecuentes: confundir O (letra) con 0 (cero), I con 1, B con 8.
-  Cuenta los caracteres. Si no son exactamente 12 o 13, omite el campo.
+ESTRUCTURA POSICIÓN A POSICIÓN (persona física = 13 caracteres):
 
-curp: EXACTAMENTE 18 caracteres en mayúsculas, sin espacios.
-  Formato: 4 letras + 6 dígitos (YYMMDD) + 1 letra (H/M) + 2 letras + 3 letras + 1 carácter + 1 dígito.
-  ⚠ Mismos errores OCR que el RFC. Si no son exactamente 18 caracteres, omite el campo.
+  Pos 1-4  → SOLO LETRAS (A-Z). Iniciales de apellidos y nombre.
+             Si OCR lee un dígito aquí → es una letra confundida: 0→O, 1→I, 8→B, 5→S
 
-cp: Exactamente 5 dígitos del domicilio fiscal. Si empieza con 0, inclúyelo (ej: "06600").
+  Pos 5-10 → SOLO DÍGITOS (0-9). Fecha de nacimiento YYMMDD.
+             Mes válido: 01–12. Día válido: 01–31.
+             Si OCR lee una letra aquí → es un dígito confundido: O→0, I→1, B→8
 
-nombre / apellidoPaterno / apellidoMaterno: Solo para persona física, en MAYÚSCULAS tal como aparece.
+  Pos 11-12 → ALFANUMÉRICOS (pueden ser letra A-Z O dígito 0-9). Código de homonimia.
+              ⚠ ZONA MÁS PROPENSA A ERRORES. Verifica cada carácter contra el documento:
+              Confusiones frecuentes: O↔0   I↔1   B↔8   S↔5   Z↔2   G↔6   Q↔0
 
-razonSocial: Solo para persona moral.
+  Pos 13   → DÍGITO VERIFICADOR. Solo puede ser: 0 1 2 3 4 5 6 7 8 9 o la letra A.
+              Si el carácter no está en ese conjunto, ajusta por similitud visual.
+
+ESTRUCTURA (persona moral = 12 caracteres):
+  Pos 1-3 → LETRAS | Pos 4-9 → DÍGITOS (YYMMDD) | Pos 10-11 → ALFANUM | Pos 12 → VERIFICADOR
+
+VALIDACIÓN FINAL: cuenta los caracteres resultado.
+  Si persona física → debe ser exactamente 13. Si no, omite el campo.
+  Si persona moral  → debe ser exactamente 12. Si no, omite el campo.
+
+════════════════════════════════════════
+CAMPO CRÍTICO: curp
+════════════════════════════════════════
+Copia VERBATIM los 18 caracteres del documento. NO derives ni construyas la CURP.
+  Pos 1-4   → LETRAS | Pos 5-10 → DÍGITOS (YYMMDD) | Pos 11 → H o M
+  Pos 12-13 → 2 LETRAS (clave estado) | Pos 14-16 → 3 LETRAS | Pos 17 → 1 carácter | Pos 18 → 1 dígito
+  ⚠ Mismas confusiones que RFC: O↔0, I↔1, B↔8
+  Si no son exactamente 18 caracteres, omite el campo.
+
+════════════════════════════════════════
+OTROS CAMPOS
+════════════════════════════════════════
+cp: Exactamente 5 dígitos del domicilio fiscal. Inclúye el 0 inicial si lo tiene (ej: "06600").
+
+nombre / apellidoPaterno / apellidoMaterno: Solo persona física, en MAYÚSCULAS tal como aparece.
+
+razonSocial: Solo persona moral, en MAYÚSCULAS tal como aparece.
 
 Estructura esperada:
 {
