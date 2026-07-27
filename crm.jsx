@@ -1567,8 +1567,9 @@ function UnitPickerModal({ onSelect, onClose }) {
   };
   var filtradas = rows.filter(function(r) {
     if (!q) return true;
-    var txt = [r.marca, r.modelo, r.anio, r.vin, r.colorExterior].filter(Boolean).join(" ").toLowerCase();
-    return txt.includes(q.toLowerCase());
+    var txt = [r.marca, r.modelo, r.anio, r.vin, r.colorExterior, r.version].filter(Boolean).join(" ").toLowerCase();
+    var palabras = q.toLowerCase().trim().split(/\s+/);
+    return palabras.every(function(p){ return txt.includes(p); });
   });
   return (
     <div style={{
@@ -1593,7 +1594,7 @@ function UnitPickerModal({ onSelect, onClose }) {
           }}>✕</button>
         </div>
         <div style={{ padding:"12px 20px", borderBottom:"1px solid var(--line)" }}>
-          <input autoFocus placeholder="Buscar por marca, modelo, año o VIN…"
+          <input autoFocus placeholder="Buscar por marca, modelo, color, año o VIN…"
             value={q} onChange={function(e){ setQ(e.target.value); }}
             style={{
               width:"100%", padding:"8px 12px", fontSize:14, boxSizing:"border-box",
