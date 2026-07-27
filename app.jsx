@@ -237,12 +237,21 @@ function Placeholder({ title, icon, desc }) {
 
 /* ── Helpers de enriquecimiento compartidos (App + SetPasswordScreen) ─────── */
 function enriquecerUsuarios(usuarios) {
+  function getSupIds(u) {
+    return (Array.isArray(u.reportaIds) && u.reportaIds.length > 0)
+      ? u.reportaIds
+      : (u.reportaA ? [u.reportaA] : []);
+  }
   return usuarios.map(u => {
-    const sup = usuarios.find(s => s.id === u.reportaA) || null;
-    const ger = u.rol==="vendedor" ? sup : u.rol==="gerente" ? u : null;
+    // Primer superior para display (display usa el primero de la lista)
+    const supIds = getSupIds(u);
+    const sup    = supIds.length > 0 ? (usuarios.find(s => s.id === supIds[0]) || null) : null;
+    const ger    = u.rol==="vendedor" ? sup : u.rol==="gerente" ? u : null;
+    // Director: primer director del gerente primario
+    const gerSupIds = ger && u.rol==="vendedor" ? getSupIds(ger) : [];
     const dir = u.rol==="director" ? u
               : u.rol==="gerente"  ? sup
-              : u.rol==="vendedor" && ger ? (usuarios.find(s=>s.id===ger.reportaA)||null) : null;
+              : gerSupIds.length > 0 ? (usuarios.find(s=>s.id===gerSupIds[0])||null) : null;
     return { ...u,
       reportaNombre: sup?.nombre||"—", reportaEmail: sup?.email||"—",
       gerenteName:   ger?.nombre||"—", gerenteEmail: ger?.email||"—",
@@ -277,8 +286,9 @@ function enriquecerRows(rows, usuariosEnriquecidos) {
       fechaFacturaTxt:fmtF(fFact), fechaLlegadaTxt:fmtF(fLleg), fechaVencTxt:fmtF(fechaVenc) };
     const vids=Array.isArray(row.vendedorIds)&&row.vendedorIds.length>0?row.vendedorIds:(row.vendedorId?[row.vendedorId]:[]);
     const vd=vids.length>0?(usuariosEnriquecidos.find(u=>u.id===vids[0])||null):null;
-    const gr=vd?(usuariosEnriquecidos.find(u=>u.id===vd.reportaA)||null):null;
-    const dr=gr?(usuariosEnriquecidos.find(u=>u.id===gr.reportaA)||null):null;
+    const _rids1=(u)=>(Array.isArray(u.reportaIds)&&u.reportaIds.length>0)?u.reportaIds:(u.reportaA?[u.reportaA]:[]);
+    const gr=vd?(_rids1(vd).length>0?(usuariosEnriquecidos.find(u=>u.id===_rids1(vd)[0])||null):null):null;
+    const dr=gr?(_rids1(gr).length>0?(usuariosEnriquecidos.find(u=>u.id===_rids1(gr)[0])||null):null):null;
     row.vendedores=vids.map(id=>usuariosEnriquecidos.find(u=>u.id===id)).filter(Boolean);
     row.vendedorNombre=vd?.nombre||""; row.vendedorEmail=vd?.email||"";
     row.gerenteId=gr?.id||""; row.gerenteNombre=gr?.nombre||""; row.gerenteEmail=gr?.email||"";
@@ -302,8 +312,9 @@ function buildAUTOMIND(agency, rowsEnriquecidas, usuariosEnriquecidos, parentAge
     enrichRowVendedor: (row, uList) => {
       const vids=Array.isArray(row.vendedorIds)&&row.vendedorIds.length>0?row.vendedorIds:(row.vendedorId?[row.vendedorId]:[]);
       const vd=vids.length>0?(uList.find(u=>u.id===vids[0])||null):null;
-      const gr=vd?(uList.find(u=>u.id===vd.reportaA)||null):null;
-      const dr=gr?(uList.find(u=>u.id===gr.reportaA)||null):null;
+      const _rids2=(u)=>(Array.isArray(u.reportaIds)&&u.reportaIds.length>0)?u.reportaIds:(u.reportaA?[u.reportaA]:[]);
+      const gr=vd?(_rids2(vd).length>0?(uList.find(u=>u.id===_rids2(vd)[0])||null):null):null;
+      const dr=gr?(_rids2(gr).length>0?(uList.find(u=>u.id===_rids2(gr)[0])||null):null):null;
       row.vendedores=vids.map(id=>uList.find(u=>u.id===id)).filter(Boolean);
       row.vendedorNombre=vd?.nombre||""; row.vendedorEmail=vd?.email||"";
       row.gerenteId=gr?.id||""; row.gerenteNombre=gr?.nombre||""; row.gerenteEmail=gr?.email||"";

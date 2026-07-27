@@ -4,7 +4,10 @@
 
 /* ── Nodo del organigrama ───────────────────────────────────────────────── */
 function OrgNodo({ u, usuarios, rows, activeGerente, onPickGerente, nivel }) {
-  const subordinados = usuarios.filter(s => s.reportaA === u.id);
+  const subordinados = usuarios.filter(s => {
+    const rIds = Array.isArray(s.reportaIds) ? s.reportaIds : (s.reportaA ? [s.reportaA] : []);
+    return rIds.includes(u.id);
+  });
   const unidadesCount = rows.filter(r => r.vendedorId === u.id).length;
   const isActive = activeGerente === u.id;
   const dimmed   = activeGerente && u.rol === "gerente" && !isActive;
@@ -73,8 +76,8 @@ function Organigrama({ usuarios, rows, activeGerente, onPickGerente }) {
 function ColabDrawer({ u, usuarios, agencyId, usuarioActual, onSave, onClose }) {
   const esEdicion = !!u;
   const [form, setForm] = React.useState(u
-    ? { ...u }
-    : { nombre:"", email:"", tel:"", rol:"vendedor", reportaA:"", fechaIngreso: new Date().toISOString().slice(0,10) }
+    ? { ...u, reportaIds: Array.isArray(u.reportaIds) ? u.reportaIds : (u.reportaA ? [u.reportaA] : []) }
+    : { nombre:"", email:"", tel:"", rol:"vendedor", reportaIds:[], fechaIngreso: new Date().toISOString().slice(0,10) }
   );
   const [loading,    setLoading]    = React.useState(false);
   const [error,      setError]      = React.useState("");
@@ -90,13 +93,19 @@ function ColabDrawer({ u, usuarios, agencyId, usuarioActual, onSave, onClose }) 
     ? usuarios.filter(x => x.rol === "director")
     : [];
 
-  const superiorObj = usuarios.find(x => x.id === form.reportaA) || null;
+  // Primer superior seleccionado (para cadena de display)
+  const rIdsForm   = Array.isArray(form.reportaIds) ? form.reportaIds : [];
+  const superiorObj = rIdsForm.length > 0 ? (usuarios.find(x => x.id === rIdsForm[0]) || null) : null;
   const gerenteObj  = form.rol === "vendedor" ? superiorObj
                     : form.rol === "gerente"  ? { ...form }
                     : null;
+  // Director: primer superior del gerente primario
+  const gerRIds    = gerenteObj && form.rol === "vendedor"
+    ? (Array.isArray(gerenteObj.reportaIds) && gerenteObj.reportaIds.length > 0 ? gerenteObj.reportaIds : (gerenteObj.reportaA ? [gerenteObj.reportaA] : []))
+    : [];
   const directorObj = form.rol === "director" ? null
                     : form.rol === "gerente"  ? superiorObj
-                    : gerenteObj ? (usuarios.find(x => x.id === gerenteObj.reportaA) || null) : null;
+                    : gerRIds.length > 0 ? (usuarios.find(x => x.id === gerRIds[0]) || null) : null;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -120,7 +129,8 @@ function ColabDrawer({ u, usuarios, agencyId, usuarioActual, onSave, onClose }) 
           nombre:       form.nombre.trim(),
           tel:          form.tel || null,
           rol:          form.rol,
-          reportaA:     form.reportaA || null,
+          reportaA:     (form.reportaIds && form.reportaIds[0]) || null,
+          reportaIds:   Array.isArray(form.reportaIds) ? form.reportaIds : [],
           fechaIngreso: form.fechaIngreso || null,
           workspaceId:  agencyId,
           agencyId:     window.AUTOMIND?.agencyParentId || agencyId,
@@ -186,7 +196,7 @@ function ColabDrawer({ u, usuarios, agencyId, usuarioActual, onSave, onClose }) 
             <div className="cf-group">
               <label className="cf-label">Rol *</label>
               <select className="cf-input" value={form.rol}
-                onChange={e => { set("rol", e.target.value); set("reportaA", ""); }}
+                onChange={e => { set("rol", e.target.value); set("reportaIds", []); }}
                 disabled={loading || (usuarioActual?.rol === "gerente" && !usuarioActual?.isAgencyOwner && !usuarioActual?.isSuperAdmin)}>
                 {(usuarioActual?.rol === "director" || usuarioActual?.isAgencyOwner || usuarioActual?.isSuperAdmin) && <option value="director">Director</option>}
                 {(usuarioActual?.rol === "director" || usuarioActual?.isAgencyOwner || usuarioActual?.isSuperAdmin) && <option value="gerente">Gerente</option>}
@@ -195,12 +205,37 @@ function ColabDrawer({ u, usuarios, agencyId, usuarioActual, onSave, onClose }) 
             </div>
             <div className="cf-group">
               <label className="cf-label">Reporta a</label>
-              <select className="cf-input" value={form.reportaA || ""}
-                onChange={e => set("reportaA", e.target.value || null)}
-                disabled={form.rol === "director" || loading}>
-                <option value="">— ninguno —</option>
-                {superiores.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-              </select>
+              {(function() {
+                /* Multi-chip: selección múltiple de superiores */
+                var rIds = Array.isArray(form.reportaIds) ? form.reportaIds : [];
+                var disabled = form.rol === "director" || loading;
+                function toggleSup(id) {
+                  if (disabled) return;
+                  set("reportaIds", rIds.includes(id) ? rIds.filter(x => x !== id) : [...rIds, id]);
+                }
+                if (superiores.length === 0) {
+                  return <p style={{ fontSize:12, color:"var(--muted)", margin:"4px 0 0" }}>— ningún superior disponible —</p>;
+                }
+                return (
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:4 }}>
+                    {superiores.map(function(s) {
+                      var sel = rIds.includes(s.id);
+                      return (
+                        <button key={s.id} type="button" onClick={() => toggleSup(s.id)}
+                          disabled={disabled}
+                          style={{ padding:"5px 13px", borderRadius:20,
+                            border: "2px solid " + (sel ? "var(--accent)" : "var(--line)"),
+                            background: sel ? "var(--accent)" : "var(--card)",
+                            color: sel ? "#fff" : "var(--ink)",
+                            fontSize:12, fontWeight:600, cursor: disabled ? "not-allowed" : "pointer",
+                            opacity: disabled ? .5 : 1, fontFamily:"inherit", transition:"all .12s" }}>
+                          {s.nombre}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -318,7 +353,8 @@ function Colaboradores({ usuarios: usuariosInit, rows, usuarioActual, autoOpenFo
 
   const listaFiltrada = usuarios.filter(u => {
     if (activeGerente && tab === "directorio") {
-      if (u.reportaA !== activeGerente && u.id !== activeGerente) return false;
+      const rIds = Array.isArray(u.reportaIds) ? u.reportaIds : (u.reportaA ? [u.reportaA] : []);
+      if (!rIds.includes(activeGerente) && u.id !== activeGerente) return false;
     }
     if (filtroRol && u.rol !== filtroRol) return false;
     if (q) {
@@ -337,15 +373,21 @@ function Colaboradores({ usuarios: usuariosInit, rows, usuarioActual, autoOpenFo
       tel:          savedUser.tel || "",
       rol:          savedUser.rol,
       reportaA:     savedUser.reporta_a || savedUser.reportaA || null,
+      reportaIds:   (savedUser.reporta_ids && savedUser.reporta_ids.length > 0)
+                      ? savedUser.reporta_ids
+                      : (savedUser.reporta_a || savedUser.reportaA)
+                        ? [savedUser.reporta_a || savedUser.reportaA]
+                        : [],
       fechaIngreso: savedUser.fecha_ingreso || savedUser.fechaIngreso || "",
       auth_user_id: savedUser.auth_user_id || null,
     };
     setUsuarios(prev => {
-      const superior = prev.find(x => x.id === mapped.reportaA) || null;
+      const rIds    = Array.isArray(mapped.reportaIds) ? mapped.reportaIds : [];
+      const sups    = rIds.map(id => prev.find(x => x.id === id)).filter(Boolean);
       const enriquecido = {
         ...mapped,
-        reportaNombre: superior ? superior.nombre : "—",
-        reportaEmail:  superior ? superior.email  : "—",
+        reportaNombre: sups.map(s => s.nombre).join(", ") || "—",
+        reportaEmail:  sups.map(s => s.email).join(", ")  || "—",
       };
       const idx = prev.findIndex(u => u.id === mapped.id || u.email === mapped.email);
       const next = idx >= 0
@@ -373,7 +415,9 @@ function Colaboradores({ usuarios: usuariosInit, rows, usuarioActual, autoOpenFo
         },
         body: JSON.stringify({
           email: u.email, nombre: u.nombre, tel: u.tel || "",
-          rol: u.rol, reportaA: u.reportaA || null,
+          rol: u.rol,
+          reportaA: (u.reportaIds && u.reportaIds[0]) || u.reportaA || null,
+          reportaIds: Array.isArray(u.reportaIds) ? u.reportaIds : (u.reportaA ? [u.reportaA] : []),
           workspaceId: agencyId,
           agencyId: window.AUTOMIND?.agencyParentId || agencyId,
           userId: u.id,
@@ -505,8 +549,10 @@ function Colaboradores({ usuarios: usuariosInit, rows, usuarioActual, autoOpenFo
               <span></span>
             </div>
             {listaFiltrada.map(u => {
-              const superior = usuarios.find(s => s.id === u.reportaA);
-              const uCount   = unidadesPorVendedor[u.id] || 0;
+              const rIds_   = Array.isArray(u.reportaIds) ? u.reportaIds : (u.reportaA ? [u.reportaA] : []);
+              const sups_   = rIds_.map(id => usuarios.find(s => s.id === id)).filter(Boolean);
+              const supTxt  = sups_.map(s => s.nombre).join(", ") || "—";
+              const uCount  = unidadesPorVendedor[u.id] || 0;
               const esYo     = usuarioActual && u.id === usuarioActual.id;
               const activo   = !!u.auth_user_id;
               const rs       = resendStates[u.id] || null;
@@ -526,7 +572,7 @@ function Colaboradores({ usuarios: usuariosInit, rows, usuarioActual, autoOpenFo
                     </div>
                   </div>
                   <span><RolBadge rol={u.rol} /></span>
-                  <span className="cl-sup">{superior ? superior.nombre : "—"}</span>
+                  <span className="cl-sup" title={supTxt}>{supTxt}</span>
                   <span>
                     <span className={"usr-status-badge " + (activo ? "activo" : "pendiente")}>
                       <span className="usr-status-badge dot" />

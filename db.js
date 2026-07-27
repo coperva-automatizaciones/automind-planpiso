@@ -214,6 +214,7 @@
         email:        raw.email,
         rol:          raw.rol || "director",
         reportaA:     raw.reporta_a || null,
+        reportaIds:   (raw.reporta_ids && raw.reporta_ids.length > 0) ? raw.reporta_ids : (raw.reporta_a ? [raw.reporta_a] : []),
         auth_user_id: raw.auth_user_id,
         workspace_id: raw.workspace_id || workspaceId,
         agency_id:    raw.agency_id,
@@ -235,7 +236,8 @@
       email:        u.email        || "",
       tel:          u.tel          || "",
       rol:          u.rol          || "vendedor",
-      reportaA:     u.reporta_a    || null,   // ← mapeo clave
+      reportaA:     u.reporta_a    || null,   // ← backward compat
+      reportaIds:   (u.reporta_ids && u.reporta_ids.length > 0) ? u.reporta_ids : (u.reporta_a ? [u.reporta_a] : []),
       fechaIngreso: u.fecha_ingreso || "",
       auth_user_id: u.auth_user_id || null,
       agency_id:    u.agency_id    || null,
@@ -362,17 +364,29 @@
         return usuarios.find(function(u) { return u.id === id; });
       }).filter(Boolean);
 
-      // Emails únicos por rol, recorriendo la jerarquía de cada vendedor
+      // Emails únicos por rol — soporta múltiples gerentes y directores por vendedor
       function unique(arr) { return [...new Set(arr.filter(Boolean))]; }
+      function getReportaIds(u) {
+        return (Array.isArray(u.reportaIds) && u.reportaIds.length > 0)
+          ? u.reportaIds
+          : (u.reportaA ? [u.reportaA] : []);
+      }
       var vendedorEmails = unique(vendedores.map(function(u) { return u.email || ""; }));
-      var gerenteEmails  = unique(vendedores.map(function(u) {
-        var ger = u.reportaA ? usuarios.find(function(s) { return s.id === u.reportaA; }) : null;
-        return ger ? (ger.email || "") : "";
+      var gerenteEmails  = unique(vendedores.flatMap(function(u) {
+        return getReportaIds(u).map(function(gId) {
+          var ger = usuarios.find(function(s) { return s.id === gId; });
+          return ger ? (ger.email || "") : "";
+        });
       }));
-      var directorEmails = unique(vendedores.map(function(u) {
-        var ger = u.reportaA ? usuarios.find(function(s) { return s.id === u.reportaA; }) : null;
-        var dir = (ger && ger.reportaA) ? usuarios.find(function(s) { return s.id === ger.reportaA; }) : null;
-        return dir ? (dir.email || "") : "";
+      var directorEmails = unique(vendedores.flatMap(function(u) {
+        return getReportaIds(u).flatMap(function(gId) {
+          var ger = usuarios.find(function(s) { return s.id === gId; });
+          if (!ger) return [];
+          return getReportaIds(ger).map(function(dId) {
+            var dir = usuarios.find(function(s) { return s.id === dId; });
+            return dir ? (dir.email || "") : "";
+          });
+        });
       }));
 
       console.log("[triggerSemAlert] vendedores:", vids.length,
@@ -436,7 +450,12 @@
       email,
       tel:          userData.tel || null,
       rol:          userData.rol,
-      reporta_a:    userData.reportaA || null,
+      reporta_ids:  Array.isArray(userData.reportaIds) && userData.reportaIds.length > 0
+                      ? userData.reportaIds
+                      : (userData.reportaA ? [userData.reportaA] : []),
+      reporta_a:    Array.isArray(userData.reportaIds) && userData.reportaIds.length > 0
+                      ? userData.reportaIds[0]
+                      : (userData.reportaA || null),
       fecha_ingreso: userData.fechaIngreso || null,
     };
 
@@ -571,6 +590,7 @@
       tel:          row.tel          || "",
       rol:          row.rol,
       reportaA:     row.reporta_a    || null,
+      reportaIds:   (row.reporta_ids && row.reporta_ids.length > 0) ? row.reporta_ids : (row.reporta_a ? [row.reporta_a] : []),
       fechaIngreso: row.fecha_ingreso || "",
       auth_user_id: row.auth_user_id || null,
     };
