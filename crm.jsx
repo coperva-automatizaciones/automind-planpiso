@@ -2239,7 +2239,7 @@ function calcularEtapaSugerida(f) {
   return maxIdx !== idxActual ? etapas[maxIdx] : null; // null = sin cambio
 }
 
-function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
+function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActual }) {
   const primer = defaultSelId
     ? (clientes.find(c => c.id === defaultSelId) || clientes[0])
     : clientes[0];
@@ -2261,6 +2261,16 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
   const [autoGuardando, setAutoGuardando] = React.useState(false);
   const [etapaAvanzada, setEtapaAvanzada] = React.useState(null); /* toast de auto-avance */
   const [verifyStates, setVerifyStates]   = React.useState({ tel: null, email: null }); /* #01 verificación */
+  const [delConfirm,   setDelConfirm]     = React.useState(false); /* confirmación eliminar cliente */
+  const [delEliminando, setDelEliminando] = React.useState(false);
+
+  /* Solo gerente, director, superadmin y agencyOwner pueden eliminar clientes */
+  const puedeEliminar = usuarioActual && (
+    usuarioActual.isSuperAdmin ||
+    usuarioActual.isAgencyOwner ||
+    usuarioActual.rol === "gerente" ||
+    usuarioActual.rol === "director"
+  );
 
   /* Auto-seleccionar cuando llega un cliente recién creado */
   React.useEffect(() => {
@@ -2363,6 +2373,20 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
       setVerifyStates(function(s) { return Object.assign({}, s, { [tipo]: resultado }); });
     } catch(err) {
       setVerifyStates(function(s) { return Object.assign({}, s, { [tipo]: { ok:false, detalle: err.message } }); });
+    }
+  }
+
+  async function handleDelete() {
+    if (!form || !puedeEliminar || !onDelete) return;
+    setDelEliminando(true);
+    try {
+      await window.DB.deleteCliente(form.id);
+      setDelConfirm(false);
+      onDelete(form.id);
+    } catch(e) {
+      alert("Error al eliminar el cliente: " + (e.message || e));
+    } finally {
+      setDelEliminando(false);
     }
   }
 
@@ -2628,6 +2652,21 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
                 </span>
               )}
               {saved && !autoGuardando && <span style={{ fontSize:12, color:"#1f9d57", fontWeight:600 }}>✓ Guardado</span>}
+              {puedeEliminar && form && (
+                <button type="button" onClick={() => setDelConfirm(true)}
+                  title="Eliminar este cliente"
+                  style={{ fontSize:12, fontWeight:600, padding:"5px 11px", borderRadius:6,
+                    border:"1px solid #fecaca", background:"#fff5f5", color:"#b91c1c",
+                    cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                  </svg>
+                  Eliminar
+                </button>
+              )}
               <button type="button"
                 onClick={() => imprimirExpediente(form)}
                 style={{ fontSize:12, fontWeight:600, padding:"5px 11px", borderRadius:6,
@@ -4287,6 +4326,71 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, usuarioActual }) {
         />
       )}
 
+      {/* ── Modal confirmación eliminar cliente ── */}
+      {delConfirm && form && (
+        <div style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:3000,
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }} onClick={() => !delEliminando && setDelConfirm(false)}>
+          <div style={{
+            background:"var(--card)", borderRadius:14, padding:"28px 32px",
+            maxWidth:420, width:"90%", boxShadow:"0 20px 60px rgba(0,0,0,.25)",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+              <div style={{
+                width:40, height:40, borderRadius:10, background:"#fff5f5",
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+              }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight:700, fontSize:15, color:"var(--ink)" }}>
+                  Eliminar cliente
+                </div>
+                <div style={{ fontSize:13, color:"var(--muted)", marginTop:2 }}>
+                  Esta acción no se puede deshacer.
+                </div>
+              </div>
+            </div>
+            <p style={{ fontSize:13, color:"var(--ink)", margin:"0 0 20px",
+              padding:"10px 14px", background:"var(--bg)", borderRadius:8,
+              border:"1px solid var(--line)", lineHeight:1.5 }}>
+              ¿Eliminar permanentemente a <strong>{form.nombre}</strong>?
+              Se perderán todos sus datos, documentos y historial.
+            </p>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button type="button"
+                disabled={delEliminando}
+                onClick={() => setDelConfirm(false)}
+                style={{ padding:"8px 18px", borderRadius:8, border:"1px solid var(--line)",
+                  background:"var(--bg)", color:"var(--ink)", fontWeight:600, fontSize:13,
+                  cursor: delEliminando ? "not-allowed" : "pointer", fontFamily:"inherit" }}>
+                Cancelar
+              </button>
+              <button type="button"
+                disabled={delEliminando}
+                onClick={handleDelete}
+                style={{ padding:"8px 18px", borderRadius:8, border:"none",
+                  background: delEliminando ? "#fca5a5" : "#dc2626", color:"#fff",
+                  fontWeight:700, fontSize:13,
+                  cursor: delEliminando ? "not-allowed" : "pointer", fontFamily:"inherit",
+                  display:"flex", alignItems:"center", gap:6 }}>
+                {delEliminando
+                  ? <><span style={{ width:12, height:12, border:"2px solid rgba(255,255,255,.4)",
+                      borderTop:"2px solid #fff", borderRadius:"50%",
+                      display:"inline-block", animation:"spin 1s linear infinite" }}/> Eliminando…</>
+                  : "Sí, eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -5184,6 +5288,12 @@ function CRMClientes({ rows, kpis, usuarios, usuarioActual }) {
     }
   }
 
+  function onClienteDelete(id) {
+    setClientesData(prev => prev.filter(c => c.id !== id));
+    setEditorSelId(null);
+    setVista("proceso");
+  }
+
   const TabBtn = ({ id, label, badge }) => (
     <button onClick={() => setVista(id)} style={{
       padding:"6px 14px", borderRadius:7, fontSize:13, fontWeight:600, border:"none",
@@ -5268,6 +5378,7 @@ function CRMClientes({ rows, kpis, usuarios, usuarioActual }) {
           clientes={clientesData}
           defaultSelId={editorSelId}
           onUpdate={onClienteUpdate}
+          onDelete={onClienteDelete}
           usuarioActual={usuarioActual}
         />
       )}
