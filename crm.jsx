@@ -3097,7 +3097,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
               var caracteristicas = Array.isArray(enc.caracteristicas) ? enc.caracteristicas : ["","",""];
               var pasatiempos     = Array.isArray(enc.pasatiempos)     ? enc.pasatiempos     : ["","",""];
               return (
-                <Sec ico="📋" titulo="Encuesta de preferencias del cliente" defaultOpen={false}>
+                <Sec ico="📋" titulo="Encuesta de preferencias del cliente" defaultOpen={true}>
                   <Fld label="8.1 ¿Qué uso le dará al vehículo?" full>
                     <PillGroup campo="uso" opciones={["Negocio","Uso particular","Ambos"]} />
                   </Fld>
@@ -3124,7 +3124,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                     </Fld>
                   )}
                   <Fld label="8.7 ¿Tipo de combustible?" full>
-                    <PillGroup campo="combustible" opciones={["Gasolina","Diesel"]} />
+                    <PillGroup campo="combustible" opciones={["Gasolina","Diesel","Híbrido","Eléctrico"]} />
                   </Fld>
                   <Fld label="8.8 ¿Transmisión?" full>
                     <PillGroup campo="transmision" opciones={["Manual","Automática"]} />
