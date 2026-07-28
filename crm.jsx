@@ -2195,12 +2195,30 @@ function ExpedienteHeader({ form, onChangeEstado }) {
 }
 
 /* ── Sección Aviso de Privacidad (tab Perfilamiento) ─────────────────────── */
-function AvisoPrivacidadSection({ form, set }) {
-  var [descargando, setDescargando] = React.useState(false);
-  var [subiendo,    setSubiendo]    = React.useState(false);
-  var inputRef = React.useRef(null);
+function AvisoPrivacidadSection({ form, set, usuarioActual }) {
+  var [descargando,    setDescargando]    = React.useState(false);
+  var [subiendo,       setSubiendo]       = React.useState(false);
+  var [subiendoPlant,  setSubiendoPlant]  = React.useState(false);
+  var [plantInfo,      setPlantInfo]      = React.useState(null); // { isDefault, nombre }
+  var [plantOk,        setPlantOk]        = React.useState(false);
+  var inputRef      = React.useRef(null);
+  var inputPlantRef = React.useRef(null);
   var aviso = form.docAviso; // { name, storageKey } | null
   var firmado = !!(aviso && aviso.storageKey);
+
+  // Leer info de la plantilla activa al montar
+  React.useEffect(function() {
+    var wId = window.AUTOMIND && window.AUTOMIND.agencyId;
+    if (!wId || !window.DB) return;
+    window.DB.getAvisoSignedUrl(wId).then(function(res) {
+      setPlantInfo(res ? { isDefault: res.isDefault, nombre: res.key } : null);
+    }).catch(function(){});
+  }, []);
+
+  // Roles que pueden reemplazar la plantilla
+  var puedeReemplazarPlant = usuarioActual && (
+    usuarioActual.isSuperAdmin || usuarioActual.isAgencyOwner || usuarioActual.rol === "director"
+  );
 
   async function descargar() {
     setDescargando(true);
@@ -2211,6 +2229,22 @@ function AvisoPrivacidadSection({ form, set }) {
       else { alert("No se encontró el aviso de privacidad. Pide al administrador que lo suba en la sección Equipo."); }
     } catch(e) { alert("Error al descargar el aviso: " + (e.message || e)); }
     finally { setDescargando(false); }
+  }
+
+  async function handlePlantilla(file) {
+    if (!file) return;
+    var ext = (file.name || "").split(".").pop().toLowerCase();
+    if (!["pdf","docx","doc"].includes(ext)) { alert("Solo se permiten archivos PDF o Word (.docx/.doc)."); return; }
+    setSubiendoPlant(true);
+    try {
+      var wId = window.AUTOMIND && window.AUTOMIND.agencyId;
+      var res = await window.DB.saveWorkspaceAviso(wId, file);
+      setPlantInfo({ isDefault: false, nombre: res.nombre });
+      if (window.AUTOMIND) window.AUTOMIND.avisoNombre = res.nombre;
+      setPlantOk(true);
+      setTimeout(function(){ setPlantOk(false); }, 3000);
+    } catch(e) { alert("Error al reemplazar la plantilla: " + (e.message || e)); }
+    finally { setSubiendoPlant(false); }
   }
 
   async function verFirmado() {
@@ -2257,6 +2291,21 @@ function AvisoPrivacidadSection({ form, set }) {
         </span>
       </div>
 
+      {/* Indicador plantilla activa */}
+      {plantInfo !== null && (
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11, color:"var(--muted)" }}>Plantilla activa:</span>
+          <span style={{
+            fontSize:11, fontWeight:700, padding:"2px 10px", borderRadius:12,
+            background: plantInfo.isDefault ? "#fef3c7" : "#dbeafe",
+            color:       plantInfo.isDefault ? "#92400e"  : "#1d4ed8",
+          }}>
+            {plantInfo.isDefault ? "⚠ Genérica (predeterminada)" : "✓ Personalizada"}
+          </span>
+          {plantOk && <span style={{ fontSize:11, color:"#059669", fontWeight:700 }}>✓ Plantilla guardada</span>}
+        </div>
+      )}
+
       {/* Acciones */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
         <button type="button" onClick={descargar} disabled={descargando}
@@ -2284,11 +2333,27 @@ function AvisoPrivacidadSection({ form, set }) {
         <input ref={inputRef} type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
           style={{ display:"none" }}
           onChange={function(e){ var f = e.target.files && e.target.files[0]; e.target.value = ""; handleFile(f); }} />
+
+        {/* Reemplazar plantilla — solo directores/owners */}
+        {puedeReemplazarPlant && (
+          <>
+            <button type="button" onClick={function(){ inputPlantRef.current && inputPlantRef.current.click(); }}
+              disabled={subiendoPlant}
+              style={{ ...btnBase, opacity: subiendoPlant ? .5 : 1 }}>
+              {subiendoPlant
+                ? <><span style={{fontSize:13}}>⏳</span> Guardando plantilla…</>
+                : <><span style={{fontSize:13}}>📋</span> {plantInfo && !plantInfo.isDefault ? "Reemplazar plantilla" : "Subir plantilla personalizada"}</>}
+            </button>
+            <input ref={inputPlantRef} type="file" accept=".pdf,.docx,.doc"
+              style={{ display:"none" }}
+              onChange={function(e){ var f = e.target.files && e.target.files[0]; e.target.value=""; handlePlantilla(f); }} />
+          </>
+        )}
       </div>
 
       {firmado && (
         <div style={{ fontSize:11, color:"var(--muted)" }}>
-          Archivo: <strong style={{color:"var(--ink)"}}>{aviso.name}</strong>
+          Archivo firmado: <strong style={{color:"var(--ink)"}}>{aviso.name}</strong>
         </div>
       )}
     </div>
@@ -3231,7 +3296,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
 
             {/* ══ AVISO DE PRIVACIDAD ══ */}
             <Sec ico="🔒" titulo="Aviso de Privacidad" defaultOpen>
-              <AvisoPrivacidadSection form={form} set={set} />
+              <AvisoPrivacidadSection form={form} set={set} usuarioActual={usuarioActual} />
             </Sec>
 
             {/* ══ ENCUESTA DE PREFERENCIAS DEL CLIENTE (8.1-8.12) ══ */}
