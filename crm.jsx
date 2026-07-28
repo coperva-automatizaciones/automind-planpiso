@@ -858,7 +858,7 @@ function DocSimpleUpload({ label, sublabel, value, onChange, readOnly }) {
                 style={{ fontSize:11, fontWeight:700, padding:"5px 10px", borderRadius:6,
                   border:"1px solid var(--accent)", background:"var(--accent)", color:"#fff", cursor:"pointer",
                   display:"flex", alignItems:"center", gap:4 }}>
-                🖨 Ver / Imprimir
+                {readOnly ? "👁 Ver" : "🖨 Ver / Imprimir"}
               </button>
               {!readOnly && (
                 <button type="button" onClick={() => onChange(null)}
@@ -3000,13 +3000,15 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   Eliminar
                 </button>
               )}
-              <button type="button"
-                onClick={() => imprimirExpediente(form)}
-                style={{ fontSize:12, fontWeight:600, padding:"5px 11px", borderRadius:6,
-                  border:"1px solid var(--line)", background:"var(--bg)", color:"var(--ink)",
-                  cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
-                🖨 Expediente
-              </button>
+              {!esVendedor && (
+                <button type="button"
+                  onClick={() => imprimirExpediente(form)}
+                  style={{ fontSize:12, fontWeight:600, padding:"5px 11px", borderRadius:6,
+                    border:"1px solid var(--line)", background:"var(--bg)", color:"var(--ink)",
+                    cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+                  🖨 Expediente
+                </button>
+              )}
               <button className="btn primary" onClick={handleSave} disabled={!dirty || autoGuardando}
                 style={{ opacity:(dirty && !autoGuardando) ? 1 : .45,
                   cursor:(dirty && !autoGuardando) ? "pointer" : "not-allowed" }}>
