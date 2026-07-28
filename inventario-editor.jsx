@@ -405,11 +405,9 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
                   onClick={() => alert(saveError)}
                   title="Click para ver detalle">⚠️ Error al guardar (click para detalles)</span>
               )}
-              {!esVendedor && (
-                <button className="btn primary" onClick={handleSave} disabled={!dirty || saving}>
-                  {saving ? "Guardando…" : "Guardar cambios"}
-                </button>
-              )}
+              <button className="btn primary" onClick={handleSave} disabled={!dirty || saving}>
+                {saving ? "Guardando…" : "Guardar cambios"}
+              </button>
               {!esVendedor && (
                 <button className="icon-btn ghost del-btn" title="Eliminar unidad" onClick={() => setShowDel(true)}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
@@ -522,7 +520,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
                 </FormField>
                 <FormField label="Observaciones">
                   <textarea className="ef-input ef-textarea ef-span2" value={form.observaciones || ""}
-                    onChange={e => set("observaciones", e.target.value)} rows={2} readOnly={esVendedor} />
+                    onChange={e => set("observaciones", e.target.value)} rows={2} />
                 </FormField>
               </div>
             </div>
