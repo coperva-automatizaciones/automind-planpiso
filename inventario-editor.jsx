@@ -612,7 +612,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
                   setForm(f => ({ ...f, vendedorIds: vids, vendedorId: vid0, ...tmp }));
                 }
               }}
-            />
+            />}
 
             {/* ── Botón eliminar (solo director/gerente) ──────────────── */}
             {!esVendedor && selId && (
