@@ -892,11 +892,21 @@ function DocSimpleUpload({ label, sublabel, value, onChange }) {
 }
 
 /* ── Multi-upload de comprobantes de pago con extracción IA de monto ──────── */
-function MultiComprobantesUpload({ value, onChange }) {
+function MultiComprobantesUpload({ value, onChange, puedeValidar }) {
   var items = value || [];
   var [cargando,    setCargando]    = React.useState(false);
   var [editIdx,     setEditIdx]     = React.useState(null); // índice editando monto
   var [editValStr,  setEditValStr]  = React.useState("");
+
+  function toggleValidacion(idx, estado) {
+    // estado: true = validar, false = rechazar. Si ya tiene ese estado, vuelve a null
+    var updated = items.map(function(it, i) {
+      if (i !== idx) return it;
+      var nuevo = it.validado === estado ? null : estado;
+      return Object.assign({}, it, { validado: nuevo });
+    });
+    onChange(updated);
+  }
   var inputRef = React.useRef(null);
 
   var total = items.reduce(function(sum, it) {
@@ -1017,6 +1027,31 @@ function MultiComprobantesUpload({ value, onChange }) {
                 {it.monto != null ? fmt(it.monto) + " ✎" : "Ingresar monto ✎"}
               </button>
             )}
+            {/* Botones validación por comprobante (solo gerente/director) */}
+            {puedeValidar && (
+              <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                <button type="button"
+                  title={it.validado === true ? "Quitar validación" : "Validar comprobante"}
+                  onClick={function(){ toggleValidacion(i, true); }}
+                  style={{
+                    border:"none", cursor:"pointer", borderRadius:6,
+                    padding:"4px 7px", fontSize:14, lineHeight:1, flexShrink:0,
+                    transition:"all .12s",
+                    background: it.validado === true  ? "#bbf7d0" : "#f3f4f6",
+                    color:      it.validado === true  ? "#15803d" : "#9ca3af",
+                  }}>✓</button>
+                <button type="button"
+                  title={it.validado === false ? "Quitar rechazo" : "Rechazar comprobante"}
+                  onClick={function(){ toggleValidacion(i, false); }}
+                  style={{
+                    border:"none", cursor:"pointer", borderRadius:6,
+                    padding:"4px 7px", fontSize:14, lineHeight:1, flexShrink:0,
+                    transition:"all .12s",
+                    background: it.validado === false ? "#fee2e2" : "#f3f4f6",
+                    color:      it.validado === false ? "#dc2626" : "#9ca3af",
+                  }}>✗</button>
+              </div>
+            )}
             <button type="button" onClick={function(){ quitar(i); }}
               style={{ border:"none", background:"#fee2e2", cursor:"pointer", color:"#b91c1c",
                 fontSize:13, padding:"3px 7px", borderRadius:6, lineHeight:1, flexShrink:0 }}>✕</button>
@@ -1032,6 +1067,33 @@ function MultiComprobantesUpload({ value, onChange }) {
           <span style={{ fontSize:15, fontWeight:800, color:"#1e40af" }}>{fmt(total)}</span>
         </div>
       )}
+      {/* Resumen de validación (visible cuando hay comprobantes y puede validar) */}
+      {puedeValidar && items.length > 0 && (function() {
+        var validados  = items.filter(function(it){ return it.validado === true; }).length;
+        var rechazados = items.filter(function(it){ return it.validado === false; }).length;
+        var allOk = validados === items.length;
+        var hasRej = rechazados > 0;
+        return (
+          <div style={{
+            display:"flex", alignItems:"center", gap:8, padding:"7px 12px",
+            borderRadius:9, fontSize:12, fontWeight:600,
+            border: allOk ? "1.5px solid #86efac" : hasRej ? "1.5px solid #fca5a5" : "1px solid var(--line)",
+            background: allOk ? "#f0fdf4" : hasRej ? "#fff1f2" : "#f9fafb",
+            color: allOk ? "#166534" : hasRej ? "#b91c1c" : "var(--muted)",
+          }}>
+            <span style={{ fontSize:15 }}>
+              {allOk ? "✅" : hasRej ? "❌" : "🔘"}
+            </span>
+            <span>
+              {allOk
+                ? "Todos los comprobantes validados (" + validados + "/" + items.length + ")"
+                : hasRej
+                  ? rechazados + " comprobante" + (rechazados > 1 ? "s" : "") + " rechazado" + (rechazados > 1 ? "s" : "") + (validados > 0 ? " · " + validados + " validado" + (validados > 1 ? "s" : "") : "")
+                  : validados + "/" + items.length + " validado" + (validados !== 1 ? "s" : "") + " — da ✓ o ✗ a cada uno"}
+            </span>
+          </div>
+        );
+      })()}
       <label style={{ display:"inline-flex", alignItems:"center", gap:6,
         cursor: cargando ? "wait" : "pointer", alignSelf:"flex-start",
         padding:"7px 14px", border:"1px dashed var(--line)", borderRadius:9,
@@ -4232,7 +4294,21 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
               <div style={{ gridColumn:"1/-1", marginTop:4 }}>
                 <MultiComprobantesUpload
                   value={form.docComprobantes || []}
-                  onChange={v => set("docComprobantes", v)}
+                  onChange={function(v) {
+                    var allOk = v.length > 0 && v.every(function(it){ return it.validado === true; });
+                    var quien = allOk ? ((usuarioActual && usuarioActual.nombre) || "") : null;
+                    var cuando = allOk ? new Date().toISOString() : null;
+                    setForm(function(prev) {
+                      return Object.assign({}, prev, {
+                        docComprobantes:  v,
+                        pagoValidado:     allOk,
+                        pagoValidadoPor:  allOk ? quien : null,
+                        pagoValidadoEn:   allOk ? cuando : null,
+                      });
+                    });
+                    setDirty(true); setSaved(false);
+                  }}
+                  puedeValidar={puedeValidarPago}
                 />
               </div>
             </Sec>
@@ -4293,81 +4369,6 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
               </Fld>
             </Sec>
 
-            {/* ── Validación de pago (solo gerente / director / superadmin) ── */}
-            <Sec ico="🔐" titulo="Validación de pago" defaultOpen>
-              {form.pagoValidado ? (
-                /* ── Estado: validado ── */
-                <div style={{ gridColumn:"1/-1" }}>
-                  <div style={{
-                    padding:"14px 16px", borderRadius:10,
-                    border:"1.5px solid #86efac", background:"#f0fdf4",
-                    display:"flex", alignItems:"center", gap:12, flexWrap:"wrap",
-                  }}>
-                    <span style={{ fontSize:20 }}>✅</span>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:"#166534" }}>
-                        Pago validado
-                      </div>
-                      {form.pagoValidadoPor && (
-                        <div style={{ fontSize:12, color:"#16a34a", marginTop:2 }}>
-                          {form.pagoValidadoPor}
-                          {form.pagoValidadoEn && (
-                            " · " + new Date(form.pagoValidadoEn).toLocaleDateString("es-MX", {
-                              day:"2-digit", month:"short", year:"numeric",
-                            })
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {puedeValidarPago && (
-                      <button type="button"
-                        onClick={() => handleValidarPago(false)}
-                        disabled={pagoValidando}
-                        style={{
-                          padding:"6px 14px", borderRadius:7, fontSize:12, fontWeight:600,
-                          border:"1px solid #dc2626", background:"transparent",
-                          color:"#dc2626", cursor:"pointer", opacity: pagoValidando ? .5 : 1,
-                        }}>
-                        {pagoValidando ? "..." : "Revocar"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* ── Estado: pendiente ── */
-                <div style={{ gridColumn:"1/-1" }}>
-                  {puedeValidarPago ? (
-                    <button type="button"
-                      onClick={() => handleValidarPago(true)}
-                      disabled={pagoValidando}
-                      style={{
-                        width:"100%", padding:"11px 0", borderRadius:9,
-                        border:"1.5px solid #16a34a",
-                        background: pagoValidando ? "#dcfce7" : "#f0fdf4",
-                        color:"#15803d", fontSize:14, fontWeight:700,
-                        cursor: pagoValidando ? "default" : "pointer",
-                        display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-                        transition:"all .15s",
-                      }}>
-                      {pagoValidando
-                        ? <><span style={{ fontSize:16 }}>⏳</span> Validando…</>
-                        : <><span style={{ fontSize:16 }}>✅</span> Validar pago</>
-                      }
-                    </button>
-                  ) : (
-                    <div style={{
-                      padding:"11px 14px", borderRadius:9,
-                      border:"1px solid #fde68a", background:"#fffbeb",
-                      fontSize:13, color:"#92400e",
-                      display:"flex", alignItems:"center", gap:8,
-                    }}>
-                      <span style={{ fontSize:15 }}>⏳</span>
-                      Pendiente de validación por el gerente
-                    </div>
-                  )}
-                </div>
-              )}
-            </Sec>
 
             </>) /* fin tab pago */}
 
