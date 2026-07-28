@@ -2795,6 +2795,20 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
         var plazo   = Number(prev.plazoMeses) || 0;
         var eng     = Number(prev.enganche)   || 0;
         if (plazo > 0 && pvFinal > 0) upd.mensualidadEst = Math.round((pvFinal - eng) / plazo);
+        // Comparar vehículo extraído contra el seleccionado
+        var modeloExt = (extractedCampos.modelo || "").trim();
+        var versionExt = (extractedCampos.version || "").trim();
+        if (modeloExt) {
+          upd.cotizacionModeloExtract = modeloExt + (versionExt ? " " + versionExt : "");
+          if (prev.unidadId && prev.unidadDesc) {
+            var descNorm = prev.unidadDesc.toLowerCase();
+            var modeloNorm = modeloExt.toLowerCase();
+            // Coincide si el modelo aparece en la descripción del vehículo seleccionado
+            upd.cotizacionVehiculoMatch = descNorm.includes(modeloNorm);
+          } else {
+            upd.cotizacionVehiculoMatch = null; // no hay vehículo seleccionado aún
+          }
+        }
       }
       // Guardar todos los datos crudos para referencia
       var clave = fuente === "id"               ? "datosId"
@@ -3639,6 +3653,29 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   }}>
                     ✓ Precio de venta tomado de la cotización:&nbsp;
                     <span>${Number(form.precioVenta).toLocaleString("es-MX")}</span>
+                  </div>
+                )}
+                {form.cotizacionVehiculoMatch === false && (
+                  <div style={{
+                    marginTop:6, padding:"8px 12px", borderRadius:8,
+                    background:"#fff7ed", border:"1px solid #fed7aa",
+                    fontSize:12, color:"#92400e",
+                    display:"flex", alignItems:"flex-start", gap:6,
+                  }}>
+                    <span style={{flexShrink:0, marginTop:1}}>⚠</span>
+                    <span>
+                      El vehículo en la cotización (<strong>{form.cotizacionModeloExtract}</strong>)
+                      no coincide con el seleccionado (<strong>{form.unidadDesc}</strong>).
+                      Verifica que estés usando la cotización correcta.
+                    </span>
+                  </div>
+                )}
+                {form.cotizacionVehiculoMatch === true && form.cotizacionModeloExtract && (
+                  <div style={{
+                    marginTop:4, fontSize:11, color:"#16a34a", fontWeight:600,
+                    display:"flex", alignItems:"center", gap:4,
+                  }}>
+                    ✓ Vehículo confirmado en cotización: {form.cotizacionModeloExtract}
                   </div>
                 )}
               </Fld>
