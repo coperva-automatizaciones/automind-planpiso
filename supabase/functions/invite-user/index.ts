@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
       console.log("[invite-user] STEP 1: usuario ya existe en auth:", invErr?.message);
 
       const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
-        type: "magiclink",
+        type: "recovery",
         email,
         options: { redirectTo: siteUrl },
       });
@@ -161,14 +161,14 @@ Deno.serve(async (req) => {
                         en Automind como
                         <span style="background:${rolColor};color:#fff;font-size:12px;font-weight:700;
                           padding:3px 10px;border-radius:20px;white-space:nowrap">${rolLabel}</span>.
-                        Haz clic para entrar directamente.
+                        Haz clic para crear o actualizar tu contraseña y activar tu acceso.
                       </p>
                       <div style="text-align:center;margin-bottom:28px">
                         <a href="${actionLink}"
                           style="display:inline-block;background:#2f6fed;color:#fff;
                           text-decoration:none;padding:15px 36px;border-radius:12px;
                           font-weight:700;font-size:15px;letter-spacing:-.2px">
-                          Entrar a la plataforma →
+                          Crear contraseña →
                         </a>
                       </div>
                       <p style="color:#aaa;font-size:12px;text-align:center;margin:0;line-height:1.6">
