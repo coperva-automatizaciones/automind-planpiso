@@ -1020,12 +1020,31 @@ function TabMensajes({ rules, workspaceId }) {
   async function handleSave(sem) {
     setSavingMsj(sem);
     try {
+      // Guardar el objeto COMPLETO tal como aparece en las textareas
+      // (incluyendo defaults para campos que el usuario no editó explícitamente).
+      // Esto garantiza que la Edge Function siempre encuentre valores explícitos
+      // en mensajes.telegram/email en lugar de caer al fallback DEF_TELEGRAM/DEF_EMAIL.
+      const mensajesCompleto = {
+        email: {
+          asunto:   getDraft(sem, "email", "asunto"),
+          director: getDraft(sem, "email", "director"),
+          gerente:  getDraft(sem, "email", "gerente"),
+          vendedor: getDraft(sem, "email", "vendedor"),
+        },
+        telegram: {
+          director: getDraft(sem, "telegram", "director"),
+          gerente:  getDraft(sem, "telegram", "gerente"),
+          vendedor: getDraft(sem, "telegram", "vendedor"),
+        },
+      };
       const { error } = await window.DB.client
         .from("alert_rules")
-        .update({ mensajes: drafts[sem] || {} })
+        .update({ mensajes: mensajesCompleto })
         .eq("workspace_id", workspaceId)
         .eq("semaforo", sem);
       if (error) throw error;
+      // Sincronizar drafts locales con lo guardado
+      setDrafts(prev => ({ ...prev, [sem]: mensajesCompleto }));
       setSavedMsj(sem);
       setTimeout(() => setSavedMsj(s => s === sem ? null : s), 2500);
     } catch(e) {

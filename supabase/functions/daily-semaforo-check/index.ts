@@ -17,25 +17,34 @@ const SEM_INFO: Record<string, { emoji: string; label: string; color: string; ur
   intereses:    { emoji: "⚫", label: "En intereses",        color: "#2d3142", urgencia: "Crítico" },
 };
 
-// Templates predeterminados de Telegram por rol
+// Templates predeterminados — deben coincidir con alertas.jsx DEF_*
+const DEF_ASUNTO_EMAIL = "[ESTADO_NUEVO]: [VEHICULO]";
+const DEF_EMAIL_BODY: Record<string, string> = {
+  director: "Estimado [DESTINATARIO],\n\nLa unidad [VEHICULO] (VIN: [VIN]) cambió al estado «[ESTADO_NUEVO]». Lleva [DIAS_EN_PISO] días en piso con [PCT_PLAN]% del plan consumido.\n\nInterés acumulado: [INTERES_ACUM].",
+  gerente:  "Hola [DESTINATARIO],\n\nLa unidad [VEHICULO] (VIN: [VIN]) de tu equipo cambió a «[ESTADO_NUEVO]». Día [DIAS_EN_PISO] en piso · [PCT_PLAN]% consumido · Interés: [INTERES_ACUM].\n\nVendedor asignado: [VENDEDOR].",
+  vendedor: "Hola [DESTINATARIO],\n\nTu unidad [VEHICULO] cambió a «[ESTADO_NUEVO]». Lleva [DIAS_EN_PISO] días en piso. Comunícate con tu gerente para coordinar acciones.",
+};
 const DEF_TELEGRAM: Record<string, string> = {
   director: "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n━━━━━━━━━━━━━━━━\n🔖 VIN: <code>[VIN]</code>\n\n📅 Día <b>[DIAS_EN_PISO]</b> en piso\n📊 Plan: <b>[PCT_PLAN]%</b>\n💸 Interés: <b>[INTERES_ACUM]</b>\n\nEstimado [DESTINATARIO], se requiere atención inmediata.",
-  gerente:  "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n━━━━━━━━━━━━━━━━\n🔖 VIN: <code>[VIN]</code>\n\n📅 Día <b>[DIAS_EN_PISO]</b> en piso\n📊 Plan: <b>[PCT_PLAN]%</b>\n💸 Interés: <b>[INTERES_ACUM]</b>\n\nHola [DESTINATARIO], revisa esta unidad.",
+  gerente:  "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n━━━━━━━━━━━━━━━━\n🔖 VIN: <code>[VIN]</code>\n\n📅 Día <b>[DIAS_EN_PISO]</b> en piso\n📊 Plan: <b>[PCT_PLAN]%</b>\n💸 Interés: <b>[INTERES_ACUM]</b>\n\nHola [DESTINATARIO], unidad de [VENDEDOR].",
   vendedor: "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n\nHola [DESTINATARIO], tu unidad cambió de estado.\n📅 Día <b>[DIAS_EN_PISO]</b> en piso. Comunícate con tu gerente.",
 };
 
-function fillTelegramTemplate(tpl: string, vars: Record<string, string>): string {
+// Sustitución de variables — aplica a email y Telegram
+function fillTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl
-    .replace(/\[VEHICULO\]/g,        vars.vehicleDesc || "")
-    .replace(/\[VIN\]/g,             vars.vin         || "—")
-    .replace(/\[DIAS_EN_PISO\]/g,    vars.diasEnPiso  || "—")
-    .replace(/\[PCT_PLAN\]/g,        vars.pctPlan     || "—")
-    .replace(/\[INTERES_ACUM\]/g,    vars.interesAcum || "$0.00")
-    .replace(/\[ESTADO_NUEVO\]/g,    vars.semToLabel  || "")
-    .replace(/\[ESTADO_ANTERIOR\]/g, vars.semFromLabel|| "")
-    .replace(/\[DESTINATARIO\]/g,    vars.destinatario|| "")
-    .replace(/\[VENDEDOR\]/g,        vars.destinatario|| "");
+    .replace(/\[DESTINATARIO\]/g,    vars.destinatario || "")
+    .replace(/\[VEHICULO\]/g,        vars.vehicleDesc  || "")
+    .replace(/\[VIN\]/g,             vars.vin          || "—")
+    .replace(/\[DIAS_EN_PISO\]/g,    vars.diasEnPiso   || "—")
+    .replace(/\[PCT_PLAN\]/g,        vars.pctPlan      || "—")
+    .replace(/\[INTERES_ACUM\]/g,    vars.interesAcum  || "$0.00")
+    .replace(/\[ESTADO_NUEVO\]/g,    vars.semToLabel   || "")
+    .replace(/\[ESTADO_ANTERIOR\]/g, vars.semFromLabel || "")
+    .replace(/\[VENDEDOR\]/g,        vars.vendedor     || "")
+    .replace(/\[FECHA\]/g,           vars.fecha        || "");
 }
+const fillTelegramTemplate = fillTemplate;
 
 // ── Fórmula canónica del semáforo (idéntica a computarSemaforo en db.js) ───
 function computarSemaforo(
@@ -59,7 +68,46 @@ function computarSemaforo(
   return "saludable";
 }
 
-// ── Template de email (idéntico a send-alert/index.ts) ──────────────────────
+// ── Template de email con cuerpo configurable (igual que send-alert) ─────────
+function emailHtmlConTemplate(params: {
+  semTo: string; siteUrl: string; bodyText: string;
+}): string {
+  const to = SEM_INFO[params.semTo] || { emoji: "🔴", label: params.semTo, color: "#e0492f", urgencia: "Alerta" };
+  const bodyHtml = params.bodyText
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8f9fb">
+      <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+        <div style="background:${to.color};padding:24px 28px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:28px">${to.emoji}</span>
+            <div>
+              <div style="color:#fff;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8">
+                Alerta de Plan Piso · ${to.urgencia}
+              </div>
+              <div style="color:#fff;font-size:18px;font-weight:800;margin-top:2px">${to.label}</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:28px;font-size:14px;line-height:1.7;color:#333">
+          ${bodyHtml}
+        </div>
+        <div style="padding:0 28px 24px;text-align:center">
+          <a href="${params.siteUrl}" style="display:inline-block;background:#2f6fed;color:#fff;text-decoration:none;
+            padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px">
+            Ver en Automind →
+          </a>
+        </div>
+        <div style="padding:16px 28px;border-top:1px solid #f0f0f0;text-align:center;font-size:12px;color:#bbb">
+          Automind Plan Piso · Revisión automática diaria
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Template de email con diseño de métricas (fallback visual) ───────────────
 function emailHtml(params: {
   vehicleDesc: string; vin: string; semFrom: string; semTo: string;
   diasEnPiso: number; interesAcum: number; pctPlan: number; siteUrl: string;
@@ -194,7 +242,7 @@ Deno.serve(async (req) => {
 
   for (const wsId of wsIds) {
     const [{ data: usrs }, { data: reglas }] = await Promise.all([
-      adminClient.from("users").select("id, email, rol, nombre, reporta_a, telegram_chat_id")
+      adminClient.from("users").select("id, email, rol, nombre, reporta_a, reporta_ids, telegram_chat_id")
         .or(`workspace_id.eq.${wsId},agency_id.eq.${wsId}`),  // incluye usuarios legacy con agency_id
       adminClient.from("alert_rules").select("*")
         .eq("workspace_id", wsId),
@@ -259,35 +307,46 @@ Deno.serve(async (req) => {
     function unique(arr: string[]): string[] {
       return [...new Set(arr.filter(Boolean))];
     }
+    // Jerarquía con soporte de reporta_ids (array) + reporta_a (legado)
+    function getReportaIds(u: any): string[] {
+      if (Array.isArray(u.reporta_ids) && u.reporta_ids.length > 0) return u.reporta_ids;
+      return u.reporta_a ? [u.reporta_a] : [];
+    }
     const vendedorEmails = unique(vendedores.map((u: any) => u.email || ""));
-    const gerenteEmails  = unique(vendedores.map((u: any) => {
-      const ger = u.reporta_a ? usuarios.find((s: any) => s.id === u.reporta_a) : null;
-      return ger ? (ger.email || "") : "";
-    }));
-    const directorEmails = unique(vendedores.map((u: any) => {
-      const ger = u.reporta_a ? usuarios.find((s: any) => s.id === u.reporta_a) : null;
-      const dir = ger?.reporta_a  ? usuarios.find((s: any) => s.id === ger.reporta_a) : null;
-      return dir ? (dir.email || "") : "";
-    }));
-
-    const recipients: string[] = [];
-    if (rule.notify_vendedor) recipients.push(...vendedorEmails);
-    if (rule.notify_gerente)  recipients.push(...gerenteEmails);
-    if (rule.notify_director) recipients.push(...directorEmails);
+    const gerenteEmails  = unique(vendedores.flatMap((u: any) =>
+      getReportaIds(u).map((gId: string) => {
+        const ger = usuarios.find((s: any) => s.id === gId);
+        return ger ? (ger.email || "") : "";
+      })
+    ));
+    const directorEmails = unique(vendedores.flatMap((u: any) =>
+      getReportaIds(u).flatMap((gId: string) => {
+        const ger = usuarios.find((s: any) => s.id === gId);
+        if (!ger) return [];
+        return getReportaIds(ger).map((dId: string) => {
+          const dir = usuarios.find((s: any) => s.id === dId);
+          return dir ? (dir.email || "") : "";
+        });
+      })
+    ));
 
     // Solo enviar a correos registrados en el workspace
     const permitidos = new Set(
       usuarios.map((u: any) => String(u.email || "").toLowerCase()).filter(Boolean)
     );
-    const uniqueRecipients = [...new Set(recipients.filter(Boolean))]
-      .filter(e => permitidos.has(String(e).toLowerCase()));
 
-    if (uniqueRecipients.length === 0) {
+    const anyRecipient = [
+      ...(rule.notify_vendedor ? vendedorEmails : []),
+      ...(rule.notify_gerente  ? gerenteEmails  : []),
+      ...(rule.notify_director ? directorEmails : []),
+    ].some(e => permitidos.has(String(e).toLowerCase()));
+
+    if (!anyRecipient) {
       console.log(`[daily-semaforo-check] Sin destinatarios para ${v.id}`);
       continue;
     }
 
-    // ── Calcular métricas para el email ──
+    // ── Calcular métricas ──
     const HOY = new Date();
     const ff  = new Date(v.fecha_factura + "T12:00:00");
     const diasEnPiso   = Math.max(0, Math.round((HOY.getTime() - ff.getTime()) / MS_DIA) - 1);
@@ -300,103 +359,144 @@ Deno.serve(async (req) => {
     const interesAcum   = Math.round(diasVencidos * interesDiario * 100) / 100;
 
     const vehicleDesc = [v.marca, v.modelo, String(v.anio || "")].filter(Boolean).join(" ");
-    const semInfo     = SEM_INFO[semaforoActual] ?? { urgencia: "Alerta", emoji: "🔴" };
-    const html        = emailHtml({
-      vehicleDesc, vin: v.vin || "",
-      semFrom: v.semaforo_snapshot, semTo: semaforoActual,
-      diasEnPiso, interesAcum, pctPlan: pct, siteUrl,
-    });
+    const fecha = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+    const interesStr = `$${interesAcum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+    const semToInfo   = SEM_INFO[semaforoActual]         ?? { emoji: "🔴", label: semaforoActual,         urgencia: "Alerta" };
+    const semFromInfo = SEM_INFO[v.semaforo_snapshot]    ?? { emoji: "—",  label: v.semaforo_snapshot || "—", urgencia: "" };
+    const semToLabel   = `${semToInfo.emoji} ${semToInfo.label}`;
+    const semFromLabel = `${semFromInfo.emoji} ${semFromInfo.label}`;
+    const vendedorName = vendedores.length > 0 ? (vendedores[0].nombre || "") : "";
 
-    // ── Enviar via Brevo ──
-    try {
-      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "api-key": brevoKey },
-        body: JSON.stringify({
-          sender: { name: "Automind Plan Piso", email: "no-reply@automind.mx" },
-          to: uniqueRecipients.map(e => ({ email: e })),
-          subject: `${semInfo.emoji} ${semInfo.urgencia}: ${vehicleDesc || v.vin || v.id}`,
-          htmlContent: html,
-        }),
-      });
+    // Mapa de lookup: email → { nombre, rol }
+    const emailToUser = new Map(
+      usuarios.map((u: any) => [
+        String(u.email || "").toLowerCase(),
+        { nombre: String(u.nombre || ""), rol: String(u.rol || "") }
+      ])
+    );
 
-      if (brevoRes.ok) {
-        alertas++;
-        // Registrar en alert_log
-        await adminClient.from("alert_log").insert({
-          workspace_id:  wsId,
-          vehicle_id:    v.id,
-          vehicle_desc:  vehicleDesc,
-          semaforo_from: v.semaforo_snapshot,
-          semaforo_to:   semaforoActual,
-          sent_to:       uniqueRecipients,
-        });
-        console.log(`[daily-semaforo-check] Alerta enviada: ${v.id} → ${uniqueRecipients.join(", ")}`);
+    // Templates configurados por el usuario (o vacío → usar defaults)
+    const emailMensajes = ((rule.mensajes || {}).email || {}) as Record<string, string>;
+    const tplAsunto = emailMensajes.asunto || DEF_ASUNTO_EMAIL;
 
-        // ── Telegram (si habilitado en la regla) ──
-        if (rule.telegram_enabled) {
-          const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
-          if (!botToken) {
-            console.warn("[daily-semaforo-check] Telegram habilitado pero TELEGRAM_BOT_TOKEN no está configurado en secrets.");
+    // ── Enviar email por rol (un email por rol, personalizado) ──
+    const rolesParaEmail: Array<{ rolKey: string; emails: string[]; notificar: boolean }> = [
+      { rolKey: "vendedor", emails: vendedorEmails, notificar: !!rule.notify_vendedor },
+      { rolKey: "gerente",  emails: gerenteEmails,  notificar: !!rule.notify_gerente  },
+      { rolKey: "director", emails: directorEmails, notificar: !!rule.notify_director },
+    ];
+    const emailsSent: string[] = [];
+
+    for (const { rolKey, emails, notificar } of rolesParaEmail) {
+      if (!notificar) continue;
+      const tplBody = emailMensajes[rolKey] || DEF_EMAIL_BODY[rolKey];
+      const filtEmails = [...new Set(emails.filter(Boolean))]
+        .filter((e: string) => permitidos.has(String(e).toLowerCase()));
+      if (!filtEmails.length) continue;
+
+      for (const emailAddr of filtEmails) {
+        const u = emailToUser.get(emailAddr.toLowerCase());
+        const vars = {
+          destinatario: u?.nombre || "",
+          vehicleDesc, vin: v.vin || "",
+          diasEnPiso: String(diasEnPiso), pctPlan: String(pct),
+          interesAcum: interesStr, semToLabel, semFromLabel,
+          vendedor: vendedorName, fecha,
+        };
+        const bodyFilled    = fillTemplate(tplBody, vars);
+        const subjectFilled = fillTemplate(tplAsunto, vars);
+        const html = emailHtmlConTemplate({ semTo: semaforoActual, siteUrl, bodyText: bodyFilled });
+
+        try {
+          const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "api-key": brevoKey },
+            body: JSON.stringify({
+              sender: { name: "Automind Plan Piso", email: "no-reply@automind.mx" },
+              to: [{ email: emailAddr }],
+              subject: subjectFilled,
+              htmlContent: html,
+            }),
+          });
+          if (brevoRes.ok) {
+            emailsSent.push(emailAddr);
           } else {
-            const semToInfo   = SEM_INFO[semaforoActual]      ?? { emoji: "🔴", label: semaforoActual };
-            const semFromInfo = SEM_INFO[v.semaforo_snapshot] ?? { emoji: "—",  label: v.semaforo_snapshot || "—" };
-            const mensajesTg  = (rule.mensajes || {}).telegram || {};
-            const vendedorName = vendedores.length > 0 ? (vendedores[0].nombre || "") : "";
-            const fecha = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
-            const tgVars = {
-              vehicleDesc,
-              vin:          v.vin || "",
-              diasEnPiso:   String(diasEnPiso),
-              pctPlan:      String(pct),
-              interesAcum:  `$${interesAcum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
-              semToLabel:   `${semToInfo.emoji} ${semToInfo.label}`,
-              semFromLabel: `${semFromInfo.emoji} ${semFromInfo.label}`,
-              vendedor:     vendedorName,
-              fecha,
-              destinatario: "",
-            };
+            const j = await brevoRes.json().catch(() => ({}));
+            errores.push(`brevo ${v.id} ${emailAddr}: ${JSON.stringify(j)}`);
+          }
+        } catch(emailErr: any) {
+          errores.push(`email ${v.id} ${emailAddr}: ${emailErr.message}`);
+        }
+      }
+    }
 
-            const vEmailsLower = vendedorEmails.map((e: string) => e.toLowerCase());
-            const gEmailsLower = gerenteEmails.map((e: string) => e.toLowerCase());
-            const dEmailsLower = directorEmails.map((e: string) => e.toLowerCase());
+    // ── Registrar en alert_log si se envió al menos un email ──
+    if (emailsSent.length > 0) {
+      alertas++;
+      await adminClient.from("alert_log").insert({
+        workspace_id:  wsId,
+        vehicle_id:    v.id,
+        vehicle_desc:  vehicleDesc,
+        semaforo_from: v.semaforo_snapshot,
+        semaforo_to:   semaforoActual,
+        sent_to:       emailsSent,
+      });
+      console.log(`[daily-semaforo-check] Alerta enviada: ${v.id} → ${emailsSent.join(", ")}`);
+    }
 
-            for (const u of usuarios) {
-              if (!u.telegram_chat_id) continue;
-              const email = String(u.email || "").toLowerCase();
-              const esVendedor = rule.notify_vendedor && vEmailsLower.includes(email);
-              const esGerente  = rule.notify_gerente  && gEmailsLower.includes(email);
-              const esDirector = rule.notify_director && dEmailsLower.includes(email);
-              if (!esVendedor && !esGerente && !esDirector) continue;
+    // ── Telegram (si habilitado en la regla) ──
+    if (rule.telegram_enabled) {
+      const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      if (!botToken) {
+        console.warn("[daily-semaforo-check] Telegram habilitado pero TELEGRAM_BOT_TOKEN no está configurado en secrets.");
+      } else {
+        const mensajesTg = (rule.mensajes || {}).telegram || {};
+        const tgVars = {
+          vehicleDesc,
+          vin:          v.vin || "",
+          diasEnPiso:   String(diasEnPiso),
+          pctPlan:      String(pct),
+          interesAcum:  interesStr,
+          semToLabel,
+          semFromLabel,
+          vendedor:     vendedorName,
+          fecha,
+          destinatario: "",
+        };
 
-              const rolKey = esDirector ? "director" : esGerente ? "gerente" : "vendedor";
-              const tpl = mensajesTg[rolKey] || DEF_TELEGRAM[rolKey];
-              const msg = fillTelegramTemplate(tpl, { ...tgVars, destinatario: u.nombre || "" });
+        const vEmailsLower = vendedorEmails.map((e: string) => e.toLowerCase());
+        const gEmailsLower = gerenteEmails.map((e: string) => e.toLowerCase());
+        const dEmailsLower = directorEmails.map((e: string) => e.toLowerCase());
 
-              try {
-                const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ chat_id: u.telegram_chat_id, text: msg, parse_mode: "HTML" }),
-                });
-                const tgJson = await tgRes.json();
-                if (!tgRes.ok) {
-                  console.error(`[daily-semaforo-check] Telegram error → ${u.email} (chat_id ${u.telegram_chat_id}):`, JSON.stringify(tgJson));
-                } else {
-                  console.log(`[daily-semaforo-check] Telegram OK → ${u.email} (rol: ${rolKey})`);
-                }
-              } catch (tgErr: any) {
-                console.error(`[daily-semaforo-check] Telegram excepción → ${u.email}:`, tgErr?.message);
-              }
+        for (const u of usuarios) {
+          if (!u.telegram_chat_id) continue;
+          const email = String(u.email || "").toLowerCase();
+          const esVendedor = rule.notify_vendedor && vEmailsLower.includes(email);
+          const esGerente  = rule.notify_gerente  && gEmailsLower.includes(email);
+          const esDirector = rule.notify_director && dEmailsLower.includes(email);
+          if (!esVendedor && !esGerente && !esDirector) continue;
+
+          const rolKey = esDirector ? "director" : esGerente ? "gerente" : "vendedor";
+          const tpl = mensajesTg[rolKey] || DEF_TELEGRAM[rolKey];
+          const msg = fillTelegramTemplate(tpl, { ...tgVars, destinatario: u.nombre || "" });
+
+          try {
+            const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: u.telegram_chat_id, text: msg, parse_mode: "HTML" }),
+            });
+            const tgJson = await tgRes.json();
+            if (!tgRes.ok) {
+              console.error(`[daily-semaforo-check] Telegram error → ${u.email} (chat_id ${u.telegram_chat_id}):`, JSON.stringify(tgJson));
+            } else {
+              console.log(`[daily-semaforo-check] Telegram OK → ${u.email} (rol: ${rolKey})`);
             }
+          } catch (tgErr: any) {
+            console.error(`[daily-semaforo-check] Telegram excepción → ${u.email}:`, tgErr?.message);
           }
         }
-      } else {
-        const brevoJson = await brevoRes.json().catch(() => ({}));
-        errores.push(`brevo ${v.id}: ${JSON.stringify(brevoJson)}`);
       }
-    } catch (e: any) {
-      errores.push(`email ${v.id}: ${e.message}`);
     }
   }
 
