@@ -336,18 +336,24 @@ Deno.serve(async (req) => {
         // ── Telegram (si habilitado en la regla) ──
         if (rule.telegram_enabled) {
           const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
-          if (botToken) {
+          if (!botToken) {
+            console.warn("[daily-semaforo-check] Telegram habilitado pero TELEGRAM_BOT_TOKEN no está configurado en secrets.");
+          } else {
             const semToInfo   = SEM_INFO[semaforoActual]      ?? { emoji: "🔴", label: semaforoActual };
             const semFromInfo = SEM_INFO[v.semaforo_snapshot] ?? { emoji: "—",  label: v.semaforo_snapshot || "—" };
             const mensajesTg  = (rule.mensajes || {}).telegram || {};
+            const vendedorName = vendedores.length > 0 ? (vendedores[0].nombre || "") : "";
+            const fecha = new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
             const tgVars = {
               vehicleDesc,
-              vin:         v.vin || "",
-              diasEnPiso:  String(diasEnPiso),
-              pctPlan:     String(pct),
-              interesAcum: `$${interesAcum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
-              semToLabel:  `${semToInfo.emoji} ${semToInfo.label}`,
-              semFromLabel:`${semFromInfo.emoji} ${semFromInfo.label}`,
+              vin:          v.vin || "",
+              diasEnPiso:   String(diasEnPiso),
+              pctPlan:      String(pct),
+              interesAcum:  `$${interesAcum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+              semToLabel:   `${semToInfo.emoji} ${semToInfo.label}`,
+              semFromLabel: `${semFromInfo.emoji} ${semFromInfo.label}`,
+              vendedor:     vendedorName,
+              fecha,
               destinatario: "",
             };
 
@@ -367,11 +373,21 @@ Deno.serve(async (req) => {
               const tpl = mensajesTg[rolKey] || DEF_TELEGRAM[rolKey];
               const msg = fillTelegramTemplate(tpl, { ...tgVars, destinatario: u.nombre || "" });
 
-              fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: u.telegram_chat_id, text: msg, parse_mode: "HTML" }),
-              }).catch(() => {});
+              try {
+                const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ chat_id: u.telegram_chat_id, text: msg, parse_mode: "HTML" }),
+                });
+                const tgJson = await tgRes.json();
+                if (!tgRes.ok) {
+                  console.error(`[daily-semaforo-check] Telegram error → ${u.email} (chat_id ${u.telegram_chat_id}):`, JSON.stringify(tgJson));
+                } else {
+                  console.log(`[daily-semaforo-check] Telegram OK → ${u.email} (rol: ${rolKey})`);
+                }
+              } catch (tgErr: any) {
+                console.error(`[daily-semaforo-check] Telegram excepción → ${u.email}:`, tgErr?.message);
+              }
             }
           }
         }
