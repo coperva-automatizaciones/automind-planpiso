@@ -798,7 +798,7 @@ async function _abrirDocVentana(doc) {
 }
 
 /* ── Carga simple de documento (sin OCR): facturas, comprobantes ─────────── */
-function DocSimpleUpload({ label, sublabel, value, onChange }) {
+function DocSimpleUpload({ label, sublabel, value, onChange, readOnly }) {
   const [subiendo, setSubiendo] = React.useState(false);
   const inputRef = React.useRef(null);
 
@@ -860,13 +860,21 @@ function DocSimpleUpload({ label, sublabel, value, onChange }) {
                   display:"flex", alignItems:"center", gap:4 }}>
                 🖨 Ver / Imprimir
               </button>
-              <button type="button" onClick={() => onChange(null)}
-                style={{ fontSize:11, fontWeight:600, padding:"5px 8px", borderRadius:6,
-                  border:"none", background:"#fee2e2", color:"#b91c1c", cursor:"pointer" }}>
-                ✕
-              </button>
+              {!readOnly && (
+                <button type="button" onClick={() => onChange(null)}
+                  style={{ fontSize:11, fontWeight:600, padding:"5px 8px", borderRadius:6,
+                    border:"none", background:"#fee2e2", color:"#b91c1c", cursor:"pointer" }}>
+                  ✕
+                </button>
+              )}
             </div>
           </div>
+        </div>
+      ) : readOnly ? (
+        <div style={{ border:"1px solid var(--line)", borderRadius:9, padding:"14px 16px",
+          display:"flex", alignItems:"center", gap:8, background:"var(--bg)" }}>
+          <div style={{ fontSize:20 }}>📄</div>
+          <span style={{ fontSize:12, color:"var(--muted)" }}>Sin documento cargado</span>
         </div>
       ) : (
         <div
@@ -1244,7 +1252,7 @@ function imprimirExpediente(form) {
 }
 
 /* ── Zona de carga de documento con extracción IA ────────────────────────── */
-function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombreReferencia }) {
+function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombreReferencia, readOnly }) {
   const [dragging,    setDragging]    = React.useState(false);
   const [extrayendo,  setExtrayendo]  = React.useState(false);
   const [campos,      setCampos]      = React.useState(null);   // null | {} | {k:v}
@@ -1421,12 +1429,14 @@ function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombr
                   }
                 }} style={{ ...btnBase, color:"var(--accent)", fontWeight:700 }}>Ver</button>
               )}
-              <button onClick={() => onChange(null)} style={{ ...btnBase, color:"#e0492f" }}>Quitar</button>
-              <button onClick={() => inputRef.current && inputRef.current.click()}
-                style={{ ...btnBase, color:"var(--muted)" }}>Reemplazar</button>
+              {!readOnly && <>
+                <button onClick={() => onChange(null)} style={{ ...btnBase, color:"#e0492f" }}>Quitar</button>
+                <button onClick={() => inputRef.current && inputRef.current.click()}
+                  style={{ ...btnBase, color:"var(--muted)" }}>Reemplazar</button>
+              </>}
             </div>
-            <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png,.pdf" style={{ display:"none" }}
-              onChange={e => { handleFile(e.target.files[0]); e.target.value = ""; }} />
+            {!readOnly && <input ref={inputRef} type="file" accept=".jpg,.jpeg,.png,.pdf" style={{ display:"none" }}
+              onChange={e => { handleFile(e.target.files[0]); e.target.value = ""; }} />}
           </div>
 
 
@@ -1588,6 +1598,18 @@ function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombr
             </div>
           )}
 
+        </div>
+      ) : readOnly ? (
+        /* ── Solo lectura, sin documento ── */
+        <div style={{ border:"1px solid var(--line)", borderRadius:9, padding:"16px",
+          textAlign:"center", background:"var(--bg)",
+          display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.6"
+            strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+          </svg>
+          <span style={{ fontSize:12, color:"var(--muted)" }}>Sin documento cargado</span>
         </div>
       ) : (
         /* ── Zona de drop vacía ── */
@@ -2494,6 +2516,9 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
   const [delConfirm,   setDelConfirm]     = React.useState(false); /* confirmación eliminar cliente */
   const [delEliminando, setDelEliminando] = React.useState(false);
 
+  /* Vendedor: puede ver documentos pero no subirlos ni quitarlos */
+  const esVendedor = !!(usuarioActual && usuarioActual.rol === "vendedor");
+
   /* Solo gerente, director, superadmin y agencyOwner pueden eliminar clientes */
   const puedeEliminar = usuarioActual && (
     usuarioActual.isSuperAdmin ||
@@ -3175,6 +3200,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="id"
                   value={form.docId || null}
                   onChange={v => set("docId", v)}
+                  readOnly={esVendedor}
                   onExtract={campos => aplicarCampos(campos, "id")}
                   nombreReferencia={form.nombre || ""}
                 />
@@ -3186,6 +3212,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="licencia"
                   value={form.docLicencia || null}
                   onChange={v => set("docLicencia", v)}
+                  readOnly={esVendedor}
                   onExtract={campos => aplicarCampos(campos, "licencia")}
                   nombreReferencia={form.nombre || ""}
                 />
@@ -3197,6 +3224,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="domicilio"
                   value={form.docDomicilio || null}
                   onChange={v => set("docDomicilio", v)}
+                  readOnly={esVendedor}
                   onExtract={campos => aplicarCampos(campos, "domicilio")}
                   nombreReferencia={form.nombre || ""}
                 />
@@ -3208,6 +3236,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="rfc"
                   value={form.docRfc || null}
                   onChange={v => set("docRfc", v)}
+                  readOnly={esVendedor}
                   onExtract={campos => aplicarCampos(campos, "rfc")}
                   nombreReferencia={form.nombre || ""}
                 />
@@ -3574,6 +3603,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                     docType="id"
                     value={form.docEvidenciaPrueba || null}
                     onChange={v => set("docEvidenciaPrueba", v)}
+                    readOnly={false}
                     nombreReferencia={form.nombre || ""}
                   />
                 </div>
@@ -3584,6 +3614,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                     docType="id"
                     value={form.docEncuestaPrueba || null}
                     onChange={v => set("docEncuestaPrueba", v)}
+                    readOnly={false}
                     nombreReferencia={form.nombre || ""}
                   />
                 </div>
@@ -3645,6 +3676,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="cotizacion"
                   value={form.docCotizacion || null}
                   onChange={v => set("docCotizacion", v)}
+                  readOnly={false}
                   onExtract={campos => aplicarCampos(campos, "cotizacion")} />
                 {form.docCotizacion && form.precioVenta > 0 && (
                   <div style={{
@@ -3807,6 +3839,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="solicitud_credito"
                   value={form.docCredSolicitud || null}
                   onChange={v => set("docCredSolicitud", v)}
+                  readOnly={esVendedor}
                   onExtract={campos => aplicarCampos(campos, "solicitud_credito")} />
               </Fld>
 
@@ -4014,19 +4047,23 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                       <DocSimpleUpload
                         label="Carta de aprobación"
                         value={form.docCredCarta || null}
-                        onChange={v => set("docCredCarta", v)} />
+                        onChange={v => set("docCredCarta", v)}
+                        readOnly={esVendedor} />
                       <DocSimpleUpload
                         label="Solicitud de crédito"
                         value={form.docCredSolicitud || null}
-                        onChange={v => set("docCredSolicitud", v)} />
+                        onChange={v => set("docCredSolicitud", v)}
+                        readOnly={esVendedor} />
                       <DocSimpleUpload
                         label="Estados de cuenta"
                         value={form.docCredEstadoCta || null}
-                        onChange={v => set("docCredEstadoCta", v)} />
+                        onChange={v => set("docCredEstadoCta", v)}
+                        readOnly={esVendedor} />
                       <DocSimpleUpload
                         label="Contrato de crédito"
                         value={form.docCredContrato || null}
-                        onChange={v => set("docCredContrato", v)} />
+                        onChange={v => set("docCredContrato", v)}
+                        readOnly={esVendedor} />
                     </div>
                   </Fld>
                 </Sec>
@@ -4326,6 +4363,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   sublabel="Factura fiscal · PDF o imagen"
                   value={form.docFactura || null}
                   onChange={v => set("docFactura", v)}
+                  readOnly={esVendedor}
                 />
               </div>
               <div style={{ gridColumn:"1/-1", marginTop:4 }}>
