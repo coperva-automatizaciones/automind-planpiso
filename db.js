@@ -425,8 +425,30 @@
   }
 
   async function deleteVehicle(id) {
-    const { error } = await client.from("inventario").delete().eq("id", id);
+    const { data, error } = await client.from("inventario").delete().eq("id", id).select("id");
     if (error) throw error;
+    if (!data || data.length === 0) throw new Error("No se eliminó el vehículo. Verifica permisos.");
+  }
+
+  // Borrado masivo en lotes de 100 — evita timeouts con selecciones grandes
+  async function deleteVehicles(ids) {
+    if (!ids || ids.length === 0) return;
+    const CHUNK = 100;
+    let errores = [];
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const { data, error } = await client.from("inventario").delete().in("id", chunk).select("id");
+      if (error) throw new Error(error.message);
+      const eliminados = data ? data.length : 0;
+      if (eliminados < chunk.length) {
+        // Algunos no se eliminaron (RLS bloqueó) — registrar los faltantes
+        const eliminadosSet = new Set((data || []).map(r => r.id));
+        chunk.forEach(id => { if (!eliminadosSet.has(id)) errores.push(id); });
+      }
+    }
+    if (errores.length > 0) {
+      throw new Error(`${errores.length} registro(s) no pudieron eliminarse (sin permisos o ya no existen).`);
+    }
   }
 
   async function loadInventario(agencyId) {
@@ -1282,6 +1304,7 @@
     loadAgencyData,
     saveVehicle,
     deleteVehicle,
+    deleteVehicles,
     loadInventario,
     saveColaborador,
     deleteColaborador,

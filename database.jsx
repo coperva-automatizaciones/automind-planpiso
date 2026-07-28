@@ -90,10 +90,12 @@ function Grid({ tabla, openVehicle, usuarioActual }) {
     if (!A) return;
     setBulkConfirm(false);
     setBulkWord("");
-    let errores = 0;
-    for (const id of ids) {
-      try { await window.DB.deleteVehicle(id); }
-      catch(e) { console.error("Error eliminando", id, e); errores++; }
+    try {
+      await window.DB.deleteVehicles(ids);
+    } catch(e) {
+      console.error("Error en borrado masivo:", e);
+      alert(e.message || "Ocurrió un error al eliminar. Intenta de nuevo.");
+      return;
     }
     const idsSet = new Set(ids);
     A.ROWS = A.ROWS.filter(r => !idsSet.has(r.id));
@@ -102,7 +104,6 @@ function Grid({ tabla, openVehicle, usuarioActual }) {
     setSelectedIds(new Set());
     setSel({ r: 0, c: 0 });
     setRenderKey(k => k + 1);
-    if (errores) alert(`${errores} registro(s) no pudieron eliminarse. Intenta de nuevo.`);
   }
 
   // Campos NO editables (calculados o protegidos)
