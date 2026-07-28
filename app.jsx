@@ -795,7 +795,7 @@ function App() {
   return (
     <div className="shell">
       <Sidebar view={view} setView={handleSetView} onMenu={handleMenu} tablaActiva={tablaId} tenant={tenant}
-        usuarioActual={usuarioActual}
+        usuarioActual={tenant?.usuarioActual}
         onLogout={handleLogout}
         onSwitchToWorkspace={handleSwitchToWorkspace}
         mobileOpen={sidebarMobileOpen}
