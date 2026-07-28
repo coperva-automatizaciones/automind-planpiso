@@ -935,8 +935,15 @@
   }
 
   async function deleteCliente(id) {
-    const { error } = await client.from("clientes").delete().eq("id", id);
+    const { data, error } = await client
+      .from("clientes")
+      .delete()
+      .eq("id", id)
+      .select("id"); // permite detectar si RLS bloqueó el borrado (0 filas)
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      throw new Error("No se eliminó el cliente. Es posible que no tengas permisos suficientes para este registro.");
+    }
   }
 
   /* ── Historial de actividad del cliente ───────────────────── */
