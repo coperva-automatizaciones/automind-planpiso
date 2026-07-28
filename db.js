@@ -1213,13 +1213,19 @@
 
   async function getAvisoSignedUrl(workspaceId) {
     var key = null;
+    var agencyIdFromWs = null;
     try {
-      var { data: ws } = await client.from("workspaces").select("aviso_privacidad_key").eq("id", workspaceId).maybeSingle();
+      // Leer workspace: aviso propio + agency_id para el fallback
+      var { data: ws } = await client.from("workspaces")
+        .select("aviso_privacidad_key, agency_id").eq("id", workspaceId).maybeSingle();
       if (ws && ws.aviso_privacidad_key) key = ws.aviso_privacidad_key;
+      if (ws && ws.agency_id) agencyIdFromWs = ws.agency_id;
     } catch(e) {}
     if (!key) {
+      // Buscar en agencies usando el agency_id real (no el workspaceId)
+      var agId = agencyIdFromWs || workspaceId;
       try {
-        var { data: ag } = await client.from("agencies").select("aviso_privacidad_key").eq("id", workspaceId).maybeSingle();
+        var { data: ag } = await client.from("agencies").select("aviso_privacidad_key").eq("id", agId).maybeSingle();
         if (ag && ag.aviso_privacidad_key) key = ag.aviso_privacidad_key;
       } catch(e) {}
     }
@@ -1233,15 +1239,33 @@
     var key = "privacidad/" + workspaceId + "/" + Date.now() + "-aviso." + ext;
     var { error: upErr } = await client.storage.from("expedientes").upload(key, file, { contentType: file.type, upsert: true });
     if (upErr) throw upErr;
-    // Intentar workspaces primero, si no afecta ninguna fila → intentar agencies
+    // Intentar workspaces primero (solo funciona para agency_admin/owner)
     var { data: wsData, error: wsErr } = await client.from("workspaces")
       .update({ aviso_privacidad_key: key, aviso_privacidad_nombre: file.name })
-      .eq("id", workspaceId).select("id");
-    if (wsErr || !wsData || wsData.length === 0) {
-      var { error: agErr } = await client.from("agencies")
-        .update({ aviso_privacidad_key: key, aviso_privacidad_nombre: file.name })
-        .eq("id", workspaceId);
-      if (agErr) throw agErr;
+      .eq("id", workspaceId).select("id, agency_id");
+    if (!wsErr && wsData && wsData.length > 0) {
+      return { key, nombre: file.name }; // guardado en workspace, listo
+    }
+    // Fallback: resolver el agency_id real del workspace y actualizar agencies.
+    // Necesario para roles director/gerente que no pueden editar workspaces por RLS.
+    var agencyId = null;
+    try {
+      // wsData puede traer agency_id si la SELECT funcionó (aunque el UPDATE no afectó filas)
+      if (wsData && wsData.length > 0 && wsData[0].agency_id) {
+        agencyId = wsData[0].agency_id;
+      } else {
+        var { data: wsRow } = await client.from("workspaces")
+          .select("agency_id").eq("id", workspaceId).maybeSingle();
+        agencyId = wsRow && wsRow.agency_id ? wsRow.agency_id : null;
+      }
+    } catch(e) {}
+    var { data: agData, error: agErr } = await client.from("agencies")
+      .update({ aviso_privacidad_key: key, aviso_privacidad_nombre: file.name })
+      .eq("id", agencyId || workspaceId)
+      .select("id");
+    if (agErr) throw new Error(agErr.message);
+    if (!agData || agData.length === 0) {
+      throw new Error("No se pudo guardar el aviso. Verifica que tengas permisos de director o superior.");
     }
     return { key, nombre: file.name };
   }
