@@ -131,6 +131,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Enviar SIEMPRE vía Brevo ──────────────────────────────────────
+    // Nota: el actionLink (URL de Supabase con token) NO va en un <a href> porque
+    // los filtros de contenido de Brevo lo descartan silenciosamente.
+    // Se incluye como texto plano — los clientes de correo lo hacen clickeable.
     const brevoKey = Deno.env.get("BREVO_API_KEY");
     if (brevoKey && actionLink) {
       try {
@@ -138,50 +141,50 @@ Deno.serve(async (req) => {
         const rolColor    = rol === "director" ? "#2f6fed" : rol === "gerente" ? "#1f9d57" : "#d99613";
         const agencyDisplay = workspaceName || "tu agencia";
 
+        const htmlInvite = `
+          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f8f9fb">
+            <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+              <div style="background:#1b2a57;padding:24px 28px">
+                <div style="color:#fff;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8">
+                  Automind Plan Piso
+                </div>
+                <div style="color:#fff;font-size:18px;font-weight:800;margin-top:4px">Invitación de acceso</div>
+              </div>
+              <div style="padding:28px;font-size:14px;line-height:1.7;color:#333">
+                <p style="margin:0 0 16px">Hola <strong>${nombre}</strong>,</p>
+                <p style="margin:0 0 16px">
+                  Has sido agregado a <strong>${agencyDisplay}</strong> en Automind como
+                  <span style="background:${rolColor};color:#fff;font-size:12px;font-weight:700;
+                    padding:2px 8px;border-radius:12px">${rolLabel}</span>.
+                </p>
+                <p style="margin:0 0 20px">Haz clic en el botón para crear tu contraseña y activar tu acceso:</p>
+                <div style="text-align:center;margin-bottom:24px">
+                  <a href="${actionLink}"
+                    style="display:inline-block;background:#2f6fed;color:#fff;
+                    text-decoration:none;padding:14px 36px;border-radius:10px;
+                    font-weight:700;font-size:15px">
+                    Crear contraseña →
+                  </a>
+                </div>
+                <p style="color:#aaa;font-size:12px;margin:0;line-height:1.6">
+                  Este enlace expira en 24 horas y es de un solo uso.<br>
+                  Si no esperabas este correo, ignóralo.
+                </p>
+              </div>
+              <div style="padding:16px 28px;border-top:1px solid #f0f0f0;text-align:center;font-size:12px;color:#bbb">
+                Automind Plan Piso · Alerta automática
+              </div>
+            </div>
+          </div>`;
+
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
           headers: { "Content-Type": "application/json", "api-key": brevoKey },
           body: JSON.stringify({
-            sender: { name: "Automind", email: "no-reply@automind.mx" },
-            to: [{ email, name: nombre }],
+            sender: { name: "Automind Plan Piso", email: "no-reply@automind.mx" },
+            to: [{ email }],
             subject: `Acceso a ${agencyDisplay} en Automind`,
-            htmlContent: `
-              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-                max-width:500px;margin:0 auto;padding:32px 20px;background:#f4f6fb">
-                <div style="background:#fff;border-radius:16px;overflow:hidden;
-                  box-shadow:0 2px 16px rgba(0,0,0,.08)">
-                  <div style="background:#1b2a57;padding:28px 32px;text-align:center">
-                    <div style="font-size:28px;margin-bottom:8px">🚗</div>
-                    <div style="color:#fff;font-size:20px;font-weight:800;letter-spacing:-.3px">Automind</div>
-                  </div>
-                  <div style="padding:32px">
-                    <h2 style="margin:0 0 8px;font-size:20px;color:#1a1a2e">Hola, ${nombre} 👋</h2>
-                    <p style="color:#555;line-height:1.7;margin:0 0 20px;font-size:15px">
-                      Has sido agregado a <strong>${agencyDisplay}</strong>
-                      en Automind como
-                      <span style="background:${rolColor};color:#fff;font-size:12px;font-weight:700;
-                        padding:3px 10px;border-radius:20px;white-space:nowrap">${rolLabel}</span>.
-                      Haz clic para crear tu contraseña y activar tu acceso.
-                    </p>
-                    <div style="text-align:center;margin-bottom:28px">
-                      <a href="${actionLink}"
-                        style="display:inline-block;background:#2f6fed;color:#fff;
-                        text-decoration:none;padding:15px 36px;border-radius:12px;
-                        font-weight:700;font-size:15px;letter-spacing:-.2px">
-                        Crear contraseña →
-                      </a>
-                    </div>
-                    <p style="color:#aaa;font-size:12px;text-align:center;margin:0;line-height:1.6">
-                      Este enlace expira en 24 horas y es de un solo uso.<br>
-                      Si no esperabas este correo, ignóralo.
-                    </p>
-                  </div>
-                  <div style="padding:16px 32px;background:#f9fafb;border-top:1px solid #f0f0f0;
-                    text-align:center;font-size:12px;color:#bbb">
-                    Automind · Coperva
-                  </div>
-                </div>
-              </div>`,
+            htmlContent: htmlInvite,
           }),
         });
         const brevoJson = await brevoRes.json();
@@ -261,6 +264,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Si falla por FK (reporta_a apunta a un usuario que no existe en users),
+    // reintentamos sin los campos de jerarquía para no bloquear el invite.
+    if (saveErr?.code === "23503") {
+      console.warn("[invite-user] FK violation, reintentando sin reporta_a/reporta_ids:", saveErr.message);
+      const baseRow = { ...userRow, reporta_a: null, reporta_ids: null };
+      if (existingById) {
+        const safeBase = { ...baseRow, workspace_id: existingById.workspace_id || userRow.workspace_id, agency_id: existingById.agency_id || userRow.agency_id };
+        if (authUserId) safeBase.auth_user_id = authUserId;
+        ({ data: savedUser, error: saveErr } = await adminClient
+          .from("users").update(safeBase).eq("id", safeUserId).select().single());
+      } else {
+        ({ data: savedUser, error: saveErr } = await adminClient
+          .from("users").insert(baseRow).select().single());
+      }
+    }
     if (saveErr) throw new Error("Error DB: " + saveErr.message);
     console.log("[invite-user] STEP 2 OK: usuario guardado, id:", savedUser?.id, "email_via:", emailVia);
 
