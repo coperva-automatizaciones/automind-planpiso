@@ -227,6 +227,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
   const [saved,     setSaved]     = React.useState(false);
   const [saveError, setSaveError] = React.useState(null);
   const [saving,    setSaving]    = React.useState(false);
+  const autoSaveTimer = React.useRef(null);
 
   // Sync si cambia el tenant
   React.useEffect(() => {
@@ -245,6 +246,14 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
   }, [selId, rows]);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setDirty(true); setSaved(false); setSaveError(null); };
+
+  // Auto-save: 1.5s después de dejar de editar
+  React.useEffect(() => {
+    if (!dirty || saving) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => { handleSave(); }, 1500);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [form, dirty]);
 
   async function handleSave() {
     if (!form) return;
