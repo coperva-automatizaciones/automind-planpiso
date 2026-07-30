@@ -2617,9 +2617,15 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
         },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        var errText = "";
+        try { errText = (await res.json()).error; } catch(_) { errText = "HTTP " + res.status; }
+        throw new Error(errText || "HTTP " + res.status);
+      }
       var json = await res.json();
+      if (json.error) throw new Error(json.error);
       var resultado = tipo === "tel" ? json.tel : json.email;
-      if (!resultado) throw new Error("Respuesta inesperada del servidor");
+      if (!resultado) throw new Error("Respuesta inesperada: sin campo " + tipo);
       // Persistir en form si salió bien
       if (resultado.ok) {
         var ahora = new Date().toISOString();
