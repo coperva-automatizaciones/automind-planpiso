@@ -209,9 +209,7 @@ function Sidebar({ view, setView, onMenu, tablaActiva, tenant, onLogout, onSwitc
             <span className="nav-lbl">Inventario</span>
           </button>
           <Item id="importar" icon={I.upload({ width: 17, height: 17 })} label="Importar inventario" />
-          {(!usuarioActual || usuarioActual.rol !== "vendedor") && (
-            <Item id="alertas" icon={I.bell({ width: 17, height: 17 })} label="Alertas" />
-          )}
+          <Item id="alertas" icon={I.bell({ width: 17, height: 17 })} label="Alertas" />
         </div>
 
         {/* ── Ventas ── */}

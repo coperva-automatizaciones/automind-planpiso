@@ -1284,11 +1284,12 @@ function TabMensajes({ rules, workspaceId }) {
 
 function ConfigAlertas({ usuarioActual }) {
   const workspaceId = window.AUTOMIND?.agencyId;
+  const esVendedor  = usuarioActual?.rol === "vendedor";
   const [rules,       setRules]       = React.useState([]);
   const [log,         setLog]         = React.useState([]);
   const [loading,     setLoading]     = React.useState(true);
   const [saving,      setSaving]      = React.useState(null);
-  const [tab,         setTab]         = React.useState("reglas");
+  const [tab,         setTab]         = React.useState(esVendedor ? "telegram" : "reglas");
   const [testEmail,   setTestEmail]   = React.useState(usuarioActual?.email || "");
   const [testSending, setTestSending] = React.useState(false);
   const [testResult,  setTestResult]  = React.useState(null);
@@ -1431,66 +1432,74 @@ function ConfigAlertas({ usuarioActual }) {
     <div className="usr-shell">
       <div className="usr-header">
         <div>
-          <h1 style={{ margin:"0 0 4px", fontSize:22, fontWeight:800 }}>Alertas de Semáforo</h1>
+          <h1 style={{ margin:"0 0 4px", fontSize:22, fontWeight:800 }}>
+            {esVendedor ? "Mi Telegram" : "Alertas de Semáforo"}
+          </h1>
           <p className="page-sub" style={{ margin:0 }}>
-            Configura qué cambios de estado generan correos automáticos al equipo.
+            {esVendedor
+              ? "Conecta tu cuenta de Telegram para recibir alertas de tus unidades."
+              : "Configura qué cambios de estado generan correos automáticos al equipo."}
           </p>
         </div>
-        <div style={{ display:"flex", gap:8 }}>
-          <button className={"btn" + (tab==="reglas"?"   primary":"")} onClick={() => setTab("reglas")}>
-            Reglas
-          </button>
-          <button className={"btn" + (tab==="mensajes"?"  primary":"")} onClick={() => setTab("mensajes")}>
-            Mensajes
-          </button>
-          <button className={"btn" + (tab==="telegram"?" primary":"")} onClick={() => setTab("telegram")}
-            style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
-              strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-              <path d="M21.2 2L2 10.4l7.4 2.3L20 6.4l-8.9 8.1v5.5l3.3-3.3"/>
-            </svg>
-            Telegram
-          </button>
-          <button className={"btn" + (tab==="whatsapp"?" primary":"")} onClick={() => setTab("whatsapp")}
-            style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <svg viewBox="0 0 24 24" width="14" height="14">
-              <path fill={tab==="whatsapp" ? "#fff" : "#25D366"}
-                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-              <path fill={tab==="whatsapp" ? "#fff" : "#25D366"}
-                d="M12 2C6.477 2 2 6.484 2 12.017c0 1.99.518 3.86 1.427 5.48L2 22l4.62-1.4A9.962 9.962 0 0012 22c5.523 0 10-4.477 10-10 0-5.522-4.477-10-10-10zm0 18.333a8.327 8.327 0 01-4.247-1.163l-.305-.18-3.14.953.899-3.173-.2-.32A8.333 8.333 0 1112 20.333z"/>
-            </svg>
-            WhatsApp
-          </button>
-          <button className={"btn" + (tab==="historial"?" primary":"")} onClick={() => { setTab("historial"); loadData(); }}>
-            Historial
-          </button>
-        </div>
-      </div>
-
-      {/* Panel de prueba — siempre visible */}
-      <div className="dcard" style={{ padding:"20px 24px", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
-        <div style={{ fontSize:13, fontWeight:700, color:"var(--ink)", flex:"0 0 auto" }}>
-          🧪 Prueba de email
-        </div>
-        <input
-          type="email"
-          placeholder="correo@ejemplo.com"
-          value={testEmail}
-          onChange={e => { setTestEmail(e.target.value); setTestResult(null); }}
-          style={{ flex:1, minWidth:220, height:38, border:"1.5px solid var(--line)", borderRadius:9,
-            padding:"0 12px", fontSize:14, fontFamily:"inherit", color:"var(--ink)", background:"var(--bg)" }}
-        />
-        <button className="btn primary" onClick={sendTestEmail} disabled={testSending || !testEmail}
-          style={{ flexShrink:0 }}>
-          {testSending ? <span className="login-spinner" style={{ width:14, height:14, borderWidth:2 }} /> : null}
-          {testSending ? " Enviando…" : "Enviar email de prueba"}
-        </button>
-        {testResult && (
-          <div className={testResult.ok ? "fb-ok" : "fb-err"} style={{ width:"100%" }}>
-            {testResult.msg}
+        {!esVendedor && (
+          <div style={{ display:"flex", gap:8 }}>
+            <button className={"btn" + (tab==="reglas"?"   primary":"")} onClick={() => setTab("reglas")}>
+              Reglas
+            </button>
+            <button className={"btn" + (tab==="mensajes"?"  primary":"")} onClick={() => setTab("mensajes")}>
+              Mensajes
+            </button>
+            <button className={"btn" + (tab==="telegram"?" primary":"")} onClick={() => setTab("telegram")}
+              style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
+                strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                <path d="M21.2 2L2 10.4l7.4 2.3L20 6.4l-8.9 8.1v5.5l3.3-3.3"/>
+              </svg>
+              Telegram
+            </button>
+            <button className={"btn" + (tab==="whatsapp"?" primary":"")} onClick={() => setTab("whatsapp")}
+              style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <svg viewBox="0 0 24 24" width="14" height="14">
+                <path fill={tab==="whatsapp" ? "#fff" : "#25D366"}
+                  d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path fill={tab==="whatsapp" ? "#fff" : "#25D366"}
+                  d="M12 2C6.477 2 2 6.484 2 12.017c0 1.99.518 3.86 1.427 5.48L2 22l4.62-1.4A9.962 9.962 0 0012 22c5.523 0 10-4.477 10-10 0-5.522-4.477-10-10-10zm0 18.333a8.327 8.327 0 01-4.247-1.163l-.305-.18-3.14.953.899-3.173-.2-.32A8.333 8.333 0 1112 20.333z"/>
+              </svg>
+              WhatsApp
+            </button>
+            <button className={"btn" + (tab==="historial"?" primary":"")} onClick={() => { setTab("historial"); loadData(); }}>
+              Historial
+            </button>
           </div>
         )}
       </div>
+
+      {/* Panel de prueba — solo para no-vendedores */}
+      {!esVendedor && (
+        <div className="dcard" style={{ padding:"20px 24px", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+          <div style={{ fontSize:13, fontWeight:700, color:"var(--ink)", flex:"0 0 auto" }}>
+            🧪 Prueba de email
+          </div>
+          <input
+            type="email"
+            placeholder="correo@ejemplo.com"
+            value={testEmail}
+            onChange={e => { setTestEmail(e.target.value); setTestResult(null); }}
+            style={{ flex:1, minWidth:220, height:38, border:"1.5px solid var(--line)", borderRadius:9,
+              padding:"0 12px", fontSize:14, fontFamily:"inherit", color:"var(--ink)", background:"var(--bg)" }}
+          />
+          <button className="btn primary" onClick={sendTestEmail} disabled={testSending || !testEmail}
+            style={{ flexShrink:0 }}>
+            {testSending ? <span className="login-spinner" style={{ width:14, height:14, borderWidth:2 }} /> : null}
+            {testSending ? " Enviando…" : "Enviar email de prueba"}
+          </button>
+          {testResult && (
+            <div className={testResult.ok ? "fb-ok" : "fb-err"} style={{ width:"100%" }}>
+              {testResult.msg}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display:"flex", justifyContent:"center", padding:48 }}>
