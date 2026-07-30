@@ -290,7 +290,7 @@
     return "saludable";
   }
 
-  async function saveVehicle(agencyId, vehicleData) {
+  async function saveVehicle(agencyId, vehicleData, opts) {
     console.log("[saveVehicle] agencyId:", agencyId,
       "| agencyParentId:", window.AUTOMIND?.agencyParentId,
       "| vehicleId:", vehicleData.id);
@@ -341,8 +341,9 @@
     console.log("[saveVehicle] OK — guardado, id:", data?.id);
 
     // Detectar cambio de semáforo y disparar alerta
+    // opts.skipAlert = true cuando se llama desde importación masiva
     const semaforoTo = vehicleData.semaforo;
-    if (semaforoTo && semaforoTo !== semaforoFrom) {
+    if (semaforoTo && semaforoTo !== semaforoFrom && !(opts && opts.skipAlert)) {
       triggerSemAlert(agencyId, vehicleData, semaforoFrom, semaforoTo);
     }
 

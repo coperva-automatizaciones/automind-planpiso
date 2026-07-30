@@ -491,7 +491,7 @@ function ImportarInventario({ onIrInventario, onImportDone }) {
         let guardadas = nuevas;
         if (window.DB && A.agencyId) {
           const resultados = await Promise.allSettled(
-            nuevas.map(v => window.DB.saveVehicle(A.agencyId, v))
+            nuevas.map(v => window.DB.saveVehicle(A.agencyId, v, { skipAlert: true }))
           );
           guardadas = nuevas.filter((_, i) => resultados[i].status === "fulfilled");
           const errores = resultados.filter(r => r.status === "rejected");
