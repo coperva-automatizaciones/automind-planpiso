@@ -4805,15 +4805,23 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
           onSelect={function(u) {
             set("unidadId",   u.id);
             set("unidadDesc", u.desc);
-            // Auto-rellenar precio de lista si la unidad lo trae
             if (u.precio > 0) {
-              set("precioLista",     u.precio);
-              set("precioVenta",     u.precio);
-              set("descuentoMonto",  0);
-              // Recalcular mensualidad si ya hay enganche y plazo
-              var eng   = Number(form.enganche)    || 0;
-              var meses = Number(form.plazoMeses)  || 0;
-              if (meses > 0) set("mensualidadEst", Math.round((u.precio - eng) / meses));
+              set("precioLista", u.precio);
+              // La cotización tiene prioridad: si ya se extrajo un precio de ella, no pisarlo
+              var pvCot = Number((form.datosCotizacion || {}).precioVenta) || 0;
+              if (pvCot > 0) {
+                // Recalcular descuento con nuevo precio de lista
+                set("descuentoMonto", Math.max(0, u.precio - pvCot));
+              } else {
+                // Sin cotización: precio del inventario es el precio de venta
+                set("precioVenta",    u.precio);
+                set("descuentoMonto", 0);
+              }
+              // Recalcular mensualidad con el precio vigente
+              var pvFinal = pvCot > 0 ? pvCot : u.precio;
+              var eng   = Number(form.enganche)   || 0;
+              var meses = Number(form.plazoMeses) || 0;
+              if (meses > 0) set("mensualidadEst", Math.round((pvFinal - eng) / meses));
             }
             setShowUnitPicker(false);
           }}
