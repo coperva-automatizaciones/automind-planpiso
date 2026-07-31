@@ -2882,7 +2882,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
         function _parseMontoC(v) {
           if (!v) return 0;
           var n = Number(String(v).replace(/[$,]/g, "").trim());
-          return isNaN(n) ? 0 : Math.round(n);
+          return isNaN(n) ? 0 : Math.round(n * 100) / 100;
         }
         var pv = extractedCampos.precioVenta ? _parseMontoC(extractedCampos.precioVenta) : 0;
         var pl = extractedCampos.precioLista ? _parseMontoC(extractedCampos.precioLista) : 0;
@@ -3769,7 +3769,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                     display:"flex", alignItems:"center", gap:4,
                   }}>
                     ✓ Precio de venta tomado de la cotización:&nbsp;
-                    <span>${Number(form.precioVenta).toLocaleString("es-MX")}</span>
+                    <span>${Number(form.precioVenta).toLocaleString("es-MX", {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                   </div>
                 )}
                 {form.cotizacionVehiculoMatch === false && (
@@ -3798,50 +3798,51 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
               </Fld>
 
               <Fld label="Precio de lista ($)">
-                <input type="number" className="ef-input" style={IS} min="0" step="1000"
+                <input type="number" className="ef-input" style={IS} min="0" step="0.01"
                   value={form.precioLista || ""}
-                  placeholder="0"
+                  placeholder="0.00"
                   onChange={e => {
-                    var pl = Number(e.target.value) || 0;
-                    var dm = Number(form.descuentoMonto) || 0;
+                    var pl = parseFloat(e.target.value) || 0;
+                    var dm = parseFloat(form.descuentoMonto) || 0;
+                    var pv = Math.round(Math.max(0, pl - dm) * 100) / 100;
                     set("precioLista", pl);
-                    set("precioVenta", Math.max(0, pl - dm));
-                    var pl2 = Number(form.plazoMeses) || 0;
-                    var eng = Number(form.enganche) || 0;
-                    if (pl2 > 0) set("mensualidadEst", Math.round((Math.max(0, pl - dm) - eng) / pl2));
+                    set("precioVenta", pv);
+                    var meses = Number(form.plazoMeses) || 0;
+                    var eng   = parseFloat(form.enganche) || 0;
+                    if (meses > 0) set("mensualidadEst", Math.round((pv - eng) / meses * 100) / 100);
                   }} />
               </Fld>
 
               <Fld label="Descuento ($)">
-                <input type="number" className="ef-input" style={IS} min="0" step="500"
+                <input type="number" className="ef-input" style={IS} min="0" step="0.01"
                   value={form.descuentoMonto || ""}
-                  placeholder="0"
+                  placeholder="0.00"
                   onChange={e => {
-                    var dm = Number(e.target.value) || 0;
-                    var pl = Number(form.precioLista) || 0;
-                    var pv = Math.max(0, pl - dm);
+                    var dm = parseFloat(e.target.value) || 0;
+                    var pl = parseFloat(form.precioLista) || 0;
+                    var pv = Math.round(Math.max(0, pl - dm) * 100) / 100;
                     set("descuentoMonto", dm);
                     set("precioVenta", pv);
                     var meses = Number(form.plazoMeses) || 0;
-                    var eng = Number(form.enganche) || 0;
-                    if (meses > 0) set("mensualidadEst", Math.round((pv - eng) / meses));
+                    var eng   = parseFloat(form.enganche) || 0;
+                    if (meses > 0) set("mensualidadEst", Math.round((pv - eng) / meses * 100) / 100);
                   }} />
               </Fld>
 
               <Fld label="Precio de venta ($)">
                 <input type="number" className="ef-input"
                   style={{ ...IS, fontWeight:700, color:"var(--accent)" }}
-                  min="0" step="1000"
+                  min="0" step="0.01"
                   value={form.precioVenta || ""}
-                  placeholder="0"
+                  placeholder="0.00"
                   onChange={e => {
-                    var pv = Number(e.target.value) || 0;
-                    var pl = Number(form.precioLista) || 0;
+                    var pv = parseFloat(e.target.value) || 0;
+                    var pl = parseFloat(form.precioLista) || 0;
                     set("precioVenta", pv);
-                    set("descuentoMonto", Math.max(0, pl - pv));
+                    set("descuentoMonto", Math.round(Math.max(0, pl - pv) * 100) / 100);
                     var meses = Number(form.plazoMeses) || 0;
-                    var eng = Number(form.enganche) || 0;
-                    if (meses > 0) set("mensualidadEst", Math.round((pv - eng) / meses));
+                    var eng   = parseFloat(form.enganche) || 0;
+                    if (meses > 0) set("mensualidadEst", Math.round((pv - eng) / meses * 100) / 100);
                   }} />
               </Fld>
 
@@ -3978,7 +3979,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   {form.precioVenta > 0 && (
                     <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>
                       Precio de venta: <strong style={{ color:"var(--ink)" }}>
-                        ${Number(form.precioVenta).toLocaleString("es-MX")}
+                        ${Number(form.precioVenta).toLocaleString("es-MX", {minimumFractionDigits:2, maximumFractionDigits:2})}
                       </strong>
                     </div>
                   )}
@@ -4035,7 +4036,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                     background:"#f0fdf4", border:"1px solid #bbf7d0",
                     fontSize:12, color:"#166534", fontWeight:600, lineHeight:1.5 }}>
                     ✓ Pago en efectivo registrado
-                    {form.precioVenta ? " · $" + Number(form.precioVenta).toLocaleString("es-MX") : ""}
+                    {form.precioVenta ? " · $" + Number(form.precioVenta).toLocaleString("es-MX", {minimumFractionDigits:2, maximumFractionDigits:2}) : ""}
                   </div>
                   <button type="button"
                     onClick={function(){ setTabActivo("fpago"); }}
@@ -4265,7 +4266,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                       )}
                       {tipoPago !== "Crédito" && form.precioVenta > 0 && (
                         <span style={{ fontSize:12, color:"var(--muted)" }}>
-                          {" · $"}{Number(form.precioVenta).toLocaleString("es-MX")}{" de contado"}
+                          {" · $"}{Number(form.precioVenta).toLocaleString("es-MX", {minimumFractionDigits:2, maximumFractionDigits:2})}{" de contado"}
                         </span>
                       )}
                     </div>
@@ -4806,7 +4807,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
               var pvFinal = pvCot > 0 ? pvCot : u.precio;
               var eng   = Number(form.enganche)   || 0;
               var meses = Number(form.plazoMeses) || 0;
-              if (meses > 0) set("mensualidadEst", Math.round((pvFinal - eng) / meses));
+              if (meses > 0) set("mensualidadEst", Math.round((pvFinal - eng) / meses * 100) / 100);
             }
             setShowUnitPicker(false);
           }}
