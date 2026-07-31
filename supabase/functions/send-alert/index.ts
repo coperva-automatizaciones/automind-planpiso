@@ -17,6 +17,12 @@ const DEF_EMAIL_BODY: Record<string, string> = {
   vendedor: "Hola [DESTINATARIO],\n\nTu unidad [VEHICULO] cambió a «[ESTADO_NUEVO]». Lleva [DIAS_EN_PISO] días en piso. Comunícate con tu gerente para coordinar acciones.",
 };
 
+// Templates predeterminados de WhatsApp por rol (formato nativo WA: *negrita* _cursiva_)
+const DEF_WHATSAPP: Record<string, string> = {
+  director: "*[ESTADO_NUEVO]* · [VEHICULO]\n─────────────────\n🔖 VIN: [VIN]\n\n📅 Día *[DIAS_EN_PISO]* en piso\n📊 Plan consumido: *[PCT_PLAN]%*\n💸 Interés acumulado: *[INTERES_ACUM]*\n\nEstimado [DESTINATARIO], se requiere atención inmediata.",
+  gerente:  "*[ESTADO_NUEVO]* · [VEHICULO]\n─────────────────\n🔖 VIN: [VIN]\n\n📅 Día *[DIAS_EN_PISO]* en piso\n📊 Plan consumido: *[PCT_PLAN]%*\n💸 Interés acumulado: *[INTERES_ACUM]*\n\nHola [DESTINATARIO], unidad de [VENDEDOR].",
+};
+
 // Templates predeterminados de Telegram por rol (HTML mode)
 const DEF_TELEGRAM: Record<string, string> = {
   director: "<b>[ESTADO_NUEVO] · [VEHICULO]</b>\n━━━━━━━━━━━━━━━━\n🔖 VIN: <code>[VIN]</code>\n\n📅 Día <b>[DIAS_EN_PISO]</b> en piso\n📊 Plan: <b>[PCT_PLAN]%</b>\n💸 Interés: <b>[INTERES_ACUM]</b>\n\nEstimado [DESTINATARIO], se requiere atención inmediata.",
@@ -449,8 +455,87 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Enviar WhatsApp via Meta Cloud API ────────────────────────────
+    let waSent = 0;
+    if (rule.wa_activa) {
+      const waPhoneId = Deno.env.get("META_WA_PHONE_NUMBER_ID");
+      const waToken   = Deno.env.get("META_WA_ACCESS_TOKEN");
+
+      if (!waPhoneId || !waToken) {
+        console.warn("[send-alert] WhatsApp activo en la regla pero META_WA_PHONE_NUMBER_ID/META_WA_ACCESS_TOKEN no configurados.");
+      } else {
+        // Obtener números de destino por rol del workspace
+        const { data: wsRow } = await adminClient
+          .from("workspaces")
+          .select("wa_director_tel, wa_gerente_tel")
+          .eq("id", workspaceId)
+          .maybeSingle();
+
+        const mensajesWa = ((rule.mensajes || {}).whatsapp || {}) as Record<string, string>;
+
+        // Construir lista de destinatarios WA
+        const waTargets: Array<{ tel: string; rol: string; nombre: string }> = [];
+        if (rule.notify_director && wsRow?.wa_director_tel) {
+          const nombre = dEmails.map((e: string) => emailToUser.get(e.toLowerCase())?.nombre || "").find((n: string) => n) || "Director";
+          waTargets.push({ tel: wsRow.wa_director_tel, rol: "director", nombre });
+        }
+        if (rule.notify_gerente && wsRow?.wa_gerente_tel) {
+          const nombre = gEmails.map((e: string) => emailToUser.get(e.toLowerCase())?.nombre || "").find((n: string) => n) || "Gerente";
+          waTargets.push({ tel: wsRow.wa_gerente_tel, rol: "gerente", nombre });
+        }
+
+        for (const target of waTargets) {
+          const tpl = mensajesWa[target.rol] || DEF_WHATSAPP[target.rol];
+          if (!tpl) continue;
+          const msg = fillTemplate(tpl, {
+            destinatario: target.nombre,
+            vehicleDesc:  vehicleDesc    || "",
+            vin:          vin            || "",
+            diasEnPiso:   String(diasEnPiso       || 0),
+            pctPlan:      String(pctPlanConsumido || 0),
+            interesAcum:  interesStr,
+            semToLabel,
+            semFromLabel,
+            vendedor:     vendedorName,
+            fecha,
+          });
+
+          // Normalizar a E.164 sin + (México: 52 + 10 dígitos)
+          const toNum = target.tel.replace(/\D/g, "");
+
+          try {
+            const waRes = await fetch(
+              `https://graph.facebook.com/v20.0/${waPhoneId}/messages`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":  "application/json",
+                  "Authorization": `Bearer ${waToken}`,
+                },
+                body: JSON.stringify({
+                  messaging_product: "whatsapp",
+                  to:   toNum,
+                  type: "text",
+                  text: { body: msg },
+                }),
+              }
+            );
+            const waJson = await waRes.json();
+            if (!waRes.ok) {
+              console.error(`[send-alert] WA error → ${target.rol} (${toNum}):`, JSON.stringify(waJson));
+            } else {
+              console.log(`[send-alert] WA OK → ${target.rol} (${toNum})`);
+              waSent++;
+            }
+          } catch (waErr: any) {
+            console.error(`[send-alert] WA excepción → ${target.rol}:`, waErr?.message);
+          }
+        }
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, sent_to: emailsSent, tg_sent: tgSent }),
+      JSON.stringify({ success: true, sent_to: emailsSent, tg_sent: tgSent, wa_sent: waSent }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

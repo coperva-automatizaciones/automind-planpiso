@@ -544,34 +544,35 @@ function TabTelegram({ usuarioActual, workspaceId, rules, onUpdateTg, saving }) 
 }
 
 /* ── Tab WhatsApp ─────────────────────────────────────────────────────── */
-function TabWhatsApp({ wpRules, setWpRules, rules }) {
+function TabWhatsApp({ wpRules, setWpRules, onUpdateWp, rules, wpTels, setWpTels, onSaveWpTels, workspaceId }) {
   const WA       = "#25D366";
-  const WA_DARK  = "#128C7E";
   const WA_BG    = "#e5ddd5";
   const WA_CHAT_BG = "#075E54";
 
-  /* Conexión (estado local — sin persistencia en BD) */
-  const [bizPhone,   setBizPhone]   = React.useState("");
-  const [apiKey,     setApiKey]     = React.useState("");
-  const [showKey,    setShowKey]    = React.useState(false);
-  const [connStatus, setConnStatus] = React.useState("idle"); // idle | connecting | connected
+  /* Números por rol — manejados por props del padre */
+  const [savedNums,  setSavedNums]  = React.useState(false);
+  const [savingNums, setSavingNums] = React.useState(false);
 
-  /* Números por rol */
-  const [phones,    setPhones]    = React.useState({ director:"", gerente:"" });
-  const [savedNums, setSavedNums] = React.useState(false);
-
-  /* Plantillas por semáforo + rol */
+  /* Plantillas por semáforo + rol — inicializar desde mensajes guardados en BD */
   const [drafts, setDrafts] = React.useState(() =>
-    SEM_CONFIG.reduce((acc, s) => ({
-      ...acc,
-      [s.key]: { director: DEF_WHATSAPP.director, gerente: DEF_WHATSAPP.gerente, vendedor: DEF_WHATSAPP.vendedor },
-    }), {})
+    SEM_CONFIG.reduce((acc, s) => {
+      const ruleWa = (rules.find(r => r.semaforo === s.key)?.mensajes?.whatsapp) || {};
+      return {
+        ...acc,
+        [s.key]: {
+          director: ruleWa.director || DEF_WHATSAPP.director,
+          gerente:  ruleWa.gerente  || DEF_WHATSAPP.gerente,
+          vendedor: ruleWa.vendedor || DEF_WHATSAPP.vendedor,
+        },
+      };
+    }, {})
   );
 
   /* Vista previa */
   const [previewSem, setPreviewSem] = React.useState("intereses");
   const [previewRol, setPreviewRol] = React.useState("director");
   const [savedTpl,   setSavedTpl]   = React.useState(false);
+  const [savingTpl,  setSavingTpl]  = React.useState(false);
 
   const currentDraft = ((drafts[previewSem] || {})[previewRol]) || DEF_WHATSAPP[previewRol] || "";
 
@@ -586,15 +587,54 @@ function TabWhatsApp({ wpRules, setWpRules, rules }) {
     setDraft(DEF_WHATSAPP[previewRol] || "");
   }
 
-  function saveTpl() {
-    setSavedTpl(true);
-    setTimeout(() => setSavedTpl(false), 2000);
+  async function saveTpl() {
+    if (!workspaceId) return;
+    setSavingTpl(true);
+    try {
+      // Leer mensajes actuales para no pisar email/telegram
+      const { data: ruleRow } = await window.DB.client
+        .from("alert_rules")
+        .select("mensajes")
+        .eq("workspace_id", workspaceId)
+        .eq("semaforo", previewSem)
+        .maybeSingle();
+      const existing = ruleRow?.mensajes || {};
+      const waTpls = drafts[previewSem] || {};
+      const { error } = await window.DB.client
+        .from("alert_rules")
+        .update({
+          mensajes: {
+            ...existing,
+            whatsapp: {
+              director: waTpls.director || DEF_WHATSAPP.director,
+              gerente:  waTpls.gerente  || DEF_WHATSAPP.gerente,
+              vendedor: waTpls.vendedor || DEF_WHATSAPP.vendedor,
+            },
+          },
+        })
+        .eq("workspace_id", workspaceId)
+        .eq("semaforo", previewSem);
+      if (error) throw error;
+      setSavedTpl(true);
+      setTimeout(() => setSavedTpl(false), 2000);
+    } catch(e) {
+      alert("Error al guardar plantilla: " + e.message);
+    } finally {
+      setSavingTpl(false);
+    }
   }
 
-  function handleConnect() {
-    if (!bizPhone || !apiKey) return;
-    setConnStatus("connecting");
-    setTimeout(() => setConnStatus("connected"), 1800);
+  async function handleSaveNums() {
+    setSavingNums(true);
+    try {
+      await onSaveWpTels();
+      setSavedNums(true);
+      setTimeout(() => setSavedNums(false), 2000);
+    } catch(e) {
+      alert("Error al guardar números: " + e.message);
+    } finally {
+      setSavingNums(false);
+    }
   }
 
   function fillPreview(tpl, rol) {
@@ -629,7 +669,7 @@ function TabWhatsApp({ wpRules, setWpRules, rules }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
 
-      {/* ── 1. Conectar WhatsApp Business ────────────────────── */}
+      {/* ── 1. Estado de conexión WhatsApp Business ──────────── */}
       <div className="dcard" style={{ padding:"24px" }}>
         <div style={{ display:"flex", alignItems:"flex-start", gap:16 }}>
           {/* Icono */}
@@ -638,110 +678,32 @@ function TabWhatsApp({ wpRules, setWpRules, rules }) {
             <IcoWA size={26} fill="#fff" />
           </div>
           <div style={{ flex:1 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8, flexWrap:"wrap" }}>
               <div style={{ fontSize:16, fontWeight:800, color:"var(--ink)" }}>
                 WhatsApp Business
               </div>
-              {connStatus === "connected" ? (
-                <span style={{ background:"#dcfce7", color:"#166534", fontSize:12, fontWeight:700,
-                  padding:"3px 10px", borderRadius:20, display:"flex", alignItems:"center", gap:5 }}>
-                  <span style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e", display:"inline-block" }} />
-                  Conectado
-                </span>
-              ) : (
-                <span style={{ background:"#f1f5f9", color:"var(--muted)", fontSize:12,
-                  fontWeight:600, padding:"3px 10px", borderRadius:20 }}>
-                  Sin configurar
-                </span>
-              )}
+              <span style={{ background:"#dcfce7", color:"#166534", fontSize:12, fontWeight:700,
+                padding:"3px 10px", borderRadius:20, display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e", display:"inline-block" }} />
+                Configurado
+              </span>
               <span style={{ marginLeft:"auto", background:"#fef9c3", color:"#854d0e",
                 fontSize:11, fontWeight:700, padding:"2px 9px", borderRadius:20 }}>
                 Beta
               </span>
             </div>
-
-            {connStatus !== "connected" ? (
-              <div>
-                <p style={{ margin:"0 0 16px", fontSize:13, color:"var(--muted)", lineHeight:1.6 }}>
-                  Para enviar alertas vía WhatsApp necesitas una cuenta de <strong>WhatsApp Business Platform</strong> aprobada por Meta.
-                  Ingresa el número de empresa y el token de acceso permanente.
-                </p>
-                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  {/* Número de empresa */}
-                  <div style={{ display:"flex", gap:0 }}>
-                    <span style={{ display:"flex", alignItems:"center", padding:"0 12px",
-                      background:"var(--bg)", border:"1.5px solid var(--line)",
-                      borderRight:"none", borderRadius:"9px 0 0 9px",
-                      fontSize:13, color:"var(--muted)", height:40, flexShrink:0, userSelect:"none" }}>
-                      +52
-                    </span>
-                    <input type="tel" value={bizPhone} onChange={e => setBizPhone(e.target.value)}
-                      placeholder="Número de empresa (10 dígitos)"
-                      style={{ flex:1, height:40, border:"1.5px solid var(--line)",
-                        borderRadius:"0 9px 9px 0", padding:"0 12px", fontSize:13,
-                        fontFamily:"inherit", color:"var(--ink)", background:"var(--bg)" }} />
-                  </div>
-                  {/* API Key */}
-                  <div style={{ display:"flex", gap:10 }}>
-                    <div style={{ flex:1, display:"flex", border:"1.5px solid var(--line)",
-                      borderRadius:9, overflow:"hidden", background:"var(--bg)" }}>
-                      <input type={showKey ? "text" : "password"}
-                        value={apiKey} onChange={e => setApiKey(e.target.value)}
-                        placeholder="Token de acceso permanente (Meta Business)"
-                        style={{ flex:1, height:40, border:"none", outline:"none",
-                          padding:"0 12px", fontSize:13,
-                          fontFamily:"'Cascadia Code','Cascadia Mono',monospace",
-                          color:"var(--ink)", background:"transparent" }} />
-                      <button onClick={() => setShowKey(v => !v)}
-                        style={{ padding:"0 12px", background:"none", border:"none",
-                          cursor:"pointer", color:"var(--muted)", flexShrink:0 }}>
-                        {showKey
-                          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        }
-                      </button>
-                    </div>
-                    <button onClick={handleConnect}
-                      disabled={connStatus === "connecting" || !bizPhone || !apiKey}
-                      style={{ flexShrink:0, padding:"0 18px", height:40,
-                        background: (!bizPhone||!apiKey) ? "var(--muted)" : WA,
-                        color:"#fff", border:"none", borderRadius:9,
-                        cursor: (!bizPhone||!apiKey||connStatus==="connecting") ? "default" : "pointer",
-                        fontWeight:700, fontSize:13, fontFamily:"inherit",
-                        display:"flex", alignItems:"center", gap:7, transition:"background .2s",
-                        opacity: (!bizPhone||!apiKey) ? .5 : 1 }}>
-                      {connStatus === "connecting"
-                        ? <><span className="login-spinner" style={{ width:13, height:13, borderWidth:2 }}/> Conectando…</>
-                        : <><IcoWA size={14} fill="#fff"/> Conectar WhatsApp</>
-                      }
-                    </button>
-                  </div>
-                </div>
-                <div style={{ marginTop:12, fontSize:12, color:"var(--muted)", lineHeight:1.6,
-                  display:"flex", gap:6, alignItems:"flex-start",
-                  background:"var(--bg)", borderRadius:8, padding:"10px 13px" }}>
-                  <span>ℹ️</span>
-                  <span>
-                    Requiere una cuenta de <strong>WhatsApp Business Platform</strong> aprobada por Meta.
-                    El token se almacena de forma segura como variable de entorno del servidor — nunca en el cliente.
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p style={{ margin:"0 0 12px", fontSize:13, color:"var(--muted)", lineHeight:1.6 }}>
-                  Recibirás alertas en WhatsApp cuando las reglas del workspace tengan el canal activado.
-                </p>
-                <div style={{ fontSize:13, color:"var(--muted)", marginBottom:14 }}>
-                  📱 Número configurado:{" "}
-                  <strong style={{ color:"var(--ink)" }}>+52 {bizPhone}</strong>
-                </div>
-                <button className="btn" style={{ fontSize:13, color:"#e0492f" }}
-                  onClick={() => setConnStatus("idle")}>
-                  Desconectar WhatsApp
-                </button>
-              </div>
-            )}
+            <p style={{ margin:"0 0 12px", fontSize:13, color:"var(--muted)", lineHeight:1.6 }}>
+              Las credenciales de la API de Meta (token de acceso y Phone Number ID) están configuradas
+              en el servidor. Para actualizarlas, contacta al administrador del sistema.
+            </p>
+            <div style={{ fontSize:12, color:"var(--muted)", background:"var(--bg)",
+              borderRadius:8, padding:"10px 13px", display:"flex", gap:6, alignItems:"flex-start" }}>
+              <span>ℹ️</span>
+              <span>
+                Las alertas se envían vía <strong>Meta Cloud API</strong>.
+                El token se almacena de forma segura como variable de entorno del servidor — nunca en el cliente.
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -766,8 +728,8 @@ function TabWhatsApp({ wpRules, setWpRules, rules }) {
                 +52
               </span>
               <input type="tel"
-                value={phones[rol]}
-                onChange={e => setPhones(p => ({...p, [rol]: e.target.value}))}
+                value={wpTels[rol]}
+                onChange={e => setWpTels(p => ({...p, [rol]: e.target.value}))}
                 placeholder={`Celular del ${label.toLowerCase()} (10 dígitos)`}
                 style={{ flex:1, height:38, border:"1.5px solid var(--line)",
                   borderRadius:"0 9px 9px 0", padding:"0 12px", fontSize:13,
@@ -788,8 +750,11 @@ function TabWhatsApp({ wpRules, setWpRules, rules }) {
             <span style={{ fontSize:12, color:"#1f9d57", fontWeight:700 }}>✓ Guardado</span>
           )}
           <button className="btn primary" style={{ fontSize:13 }}
-            onClick={() => { setSavedNums(true); setTimeout(() => setSavedNums(false), 2000); }}>
-            Guardar números
+            onClick={handleSaveNums} disabled={savingNums}>
+            {savingNums
+              ? <span className="login-spinner" style={{ width:13, height:13, borderWidth:2 }} />
+              : null}
+            {savingNums ? " Guardando…" : "Guardar números"}
           </button>
         </div>
       </div>
@@ -831,7 +796,7 @@ function TabWhatsApp({ wpRules, setWpRules, rules }) {
               <div className="alert-col" style={{ flex:1, justifyContent:"center" }}>
                 <Toggle
                   checked={!!wpRules[rule.semaforo]}
-                  onChange={v => setWpRules(prev => ({...prev, [rule.semaforo]: v}))}
+                  onChange={v => onUpdateWp(rule.semaforo, v)}
                   disabled={!rule.activa}
                 />
                 <span style={{ fontSize:11, color: wpRules[rule.semaforo] ? WA : "var(--muted)" }}>
@@ -914,8 +879,11 @@ function TabWhatsApp({ wpRules, setWpRules, rules }) {
                 {savedTpl && (
                   <span style={{ fontSize:12, color:"#1f9d57", fontWeight:700 }}>✓ Guardado</span>
                 )}
-                <button className="btn primary" style={{ fontSize:13 }} onClick={saveTpl}>
-                  Guardar plantilla
+                <button className="btn primary" style={{ fontSize:13 }}
+                  onClick={saveTpl} disabled={savingTpl}>
+                  {savingTpl
+                    ? <><span className="login-spinner" style={{ width:12, height:12, borderWidth:2 }} /> Guardando…</>
+                    : "Guardar plantilla"}
                 </button>
               </div>
             </div>
@@ -1293,10 +1261,11 @@ function ConfigAlertas({ usuarioActual }) {
   const [testEmail,   setTestEmail]   = React.useState(usuarioActual?.email || "");
   const [testSending, setTestSending] = React.useState(false);
   const [testResult,  setTestResult]  = React.useState(null);
-  /* Estado WhatsApp — solo frontend, no persiste en BD */
+  /* Estado WhatsApp */
   const [wpRules,     setWpRules]     = React.useState(() =>
     SEM_CONFIG.reduce((acc, s) => ({...acc, [s.key]: false}), {})
   );
+  const [wpTels,      setWpTels]      = React.useState({ director:"", gerente:"" });
 
   React.useEffect(() => {
     if (!workspaceId || !window.DB) return;
@@ -1336,6 +1305,17 @@ function ConfigAlertas({ usuarioActual }) {
           notify_vendedor: false, notify_gerente: false, notify_director: false, activa: false,
         });
         setRules(ordered);
+        // Inicializar wpRules desde BD
+        const wpFromDb = {};
+        ordered.forEach(r => { wpFromDb[r.semaforo] = !!r.wa_activa; });
+        setWpRules(wpFromDb);
+        // Cargar números WA del workspace
+        const { data: wsWa } = await window.DB.client
+          .from("workspaces")
+          .select("wa_director_tel, wa_gerente_tel")
+          .eq("id", workspaceId)
+          .maybeSingle();
+        if (wsWa) setWpTels({ director: wsWa.wa_director_tel || "", gerente: wsWa.wa_gerente_tel || "" });
       }
       // Log reciente
       const { data: logData } = await window.DB.client
@@ -1366,9 +1346,32 @@ function ConfigAlertas({ usuarioActual }) {
     }
   }
 
-  function handleUpdateWp(semaforo, value) {
+  async function handleUpdateWp(semaforo, value) {
     setWpRules(prev => ({...prev, [semaforo]: value}));
-    // Frontend-only: no escribe en BD
+    setSaving(semaforo);
+    try {
+      await window.DB.client
+        .from("alert_rules")
+        .update({ wa_activa: value })
+        .eq("workspace_id", workspaceId)
+        .eq("semaforo", semaforo);
+    } catch(e) {
+      console.error(e);
+      setWpRules(prev => ({...prev, [semaforo]: !value}));
+    } finally {
+      setTimeout(() => setSaving(null), 600);
+    }
+  }
+
+  async function handleSaveWpTels() {
+    const { error } = await window.DB.client
+      .from("workspaces")
+      .update({
+        wa_director_tel: wpTels.director || null,
+        wa_gerente_tel:  wpTels.gerente  || null,
+      })
+      .eq("id", workspaceId);
+    if (error) throw error;
   }
 
   async function handleUpdateTg(semaforo, value) {
@@ -1517,7 +1520,12 @@ function ConfigAlertas({ usuarioActual }) {
         <TabWhatsApp
           wpRules={wpRules}
           setWpRules={setWpRules}
+          onUpdateWp={handleUpdateWp}
           rules={rules}
+          wpTels={wpTels}
+          setWpTels={setWpTels}
+          onSaveWpTels={handleSaveWpTels}
+          workspaceId={workspaceId}
         />
       ) : tab === "mensajes" ? (
         <TabMensajes rules={rules} workspaceId={workspaceId} />
