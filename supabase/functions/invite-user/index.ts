@@ -282,6 +282,33 @@ Deno.serve(async (req) => {
     if (saveErr) throw new Error("Error DB: " + saveErr.message);
     console.log("[invite-user] STEP 2 OK: usuario guardado, id:", savedUser?.id, "email_via:", emailVia);
 
+    // ── 2b. Vendedor nuevo → asignar a todo el inventario activo del workspace ──
+    if (rol === "vendedor" && savedUser?.id) {
+      try {
+        const { data: invRows } = await adminClient
+          .from("inventario")
+          .select("id, vendedor_ids, vendedor_id")
+          .or(`workspace_id.eq.${workspaceId},agency_id.eq.${workspaceId}`)
+          .neq("estado_venta", "vendido");
+
+        const pendientes = (invRows || []).filter((r: any) => {
+          return !((r.vendedor_ids || []) as string[]).includes(savedUser.id);
+        });
+
+        if (pendientes.length > 0) {
+          await Promise.all(pendientes.map((r: any) => {
+            const newVids = [...(r.vendedor_ids || []), savedUser.id];
+            const upd: any = { vendedor_ids: newVids };
+            if (!r.vendedor_id) upd.vendedor_id = savedUser.id;
+            return adminClient.from("inventario").update(upd).eq("id", r.id);
+          }));
+          console.log(`[invite-user] STEP 2b: asignado a ${pendientes.length} unidades de inventario`);
+        }
+      } catch (invErr: any) {
+        console.warn("[invite-user] STEP 2b (no crítico): error al asignar inventario:", invErr.message);
+      }
+    }
+
     // ── 3. Crear workspace_memberships para que RLS funcione ───────────
     if (authUserId) {
       const { error: wmErr } = await adminClient

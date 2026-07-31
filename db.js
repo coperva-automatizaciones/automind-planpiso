@@ -504,7 +504,41 @@
       }
       throw error;
     }
+
+    // Vendedor nuevo → asignar a todo el inventario activo del workspace (fire & forget)
+    if (data && userData.rol === "vendedor" && !existing) {
+      asignarVendedorAInventario(agencyId, data.id).catch(function(e) {
+        console.warn("[saveColaborador] asignar inventario:", e.message);
+      });
+    }
+
     return data;
+  }
+
+  /* Auto-asigna un vendedor a todas las unidades activas del workspace */
+  async function asignarVendedorAInventario(workspaceId, vendedorId) {
+    const { data: rows } = await client
+      .from("inventario")
+      .select("id, vendedor_ids, vendedor_id")
+      .or("workspace_id.eq." + workspaceId + ",agency_id.eq." + workspaceId)
+      .neq("estado_venta", "vendido");
+
+    if (!rows || rows.length === 0) return;
+
+    const pendientes = rows.filter(function(r) {
+      return !(r.vendedor_ids || []).includes(vendedorId);
+    });
+
+    if (pendientes.length === 0) return;
+
+    await Promise.all(pendientes.map(function(r) {
+      var newVids = (r.vendedor_ids || []).concat([vendedorId]);
+      var upd = { vendedor_ids: newVids };
+      if (!r.vendedor_id) upd.vendedor_id = vendedorId;
+      return client.from("inventario").update(upd).eq("id", r.id);
+    }));
+
+    console.log("[asignarVendedorAInventario] Asignado a " + pendientes.length + " unidades");
   }
 
   async function deleteColaborador(id) {
