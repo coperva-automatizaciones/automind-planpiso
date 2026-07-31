@@ -162,6 +162,7 @@ function DiasPorSemaforo({ rows }) {
 
 /* ── Por modelo ─────────────────────────────────────────────── */
 function PorModelo({ rows, filters, setFilters }) {
+  const [showAll, setShowAll] = React.useState(false);
   const modelos = {};
   rows.forEach(r => {
     const m = r.modelo || "Sin modelo";
@@ -169,8 +170,10 @@ function PorModelo({ rows, filters, setFilters }) {
     modelos[m].total++;
     if (r.semaforo === "intereses" || r.semaforo === "vencer") modelos[m].alertas++;
   });
-  const list    = Object.entries(modelos).sort((a, b) => b[1].total - a[1].total).slice(0, 7);
-  const maxUnits = list[0]?.[1]?.total || 1;
+  const sorted   = Object.entries(modelos).sort((a, b) => b[1].total - a[1].total);
+  const list     = showAll ? sorted : sorted.slice(0, 7);
+  const maxUnits = sorted[0]?.[1]?.total || 1;
+  const hayMas   = sorted.length > 7;
 
   return (
     <Card>
@@ -198,13 +201,13 @@ function PorModelo({ rows, filters, setFilters }) {
           </span>
         </div>
       ))}
-      {!list.length && <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 12 }}>Sin datos</div>}
-      {list.length > 0 && (
+      {!sorted.length && <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 12 }}>Sin datos</div>}
+      {hayMas && (
         <div style={{ padding: "8px 16px 10px", borderTop: "1px solid var(--line-2)", marginTop: 2 }}>
-          <button onClick={() => setFilters(f => ({ ...f, modelo: null }))}
+          <button onClick={() => setShowAll(s => !s)}
             style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", background: "none", border: "none",
               cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-            Ver todos los modelos {I.chevron({ width: 13, height: 13 })}
+            {showAll ? "Ver menos" : "Ver todos los modelos (" + sorted.length + ")"} {I.chevron({ width: 13, height: 13 })}
           </button>
         </div>
       )}
