@@ -6,6 +6,7 @@ gracia le queda antes de empezar a generar intereses de financiamiento, y notifi
 correo a vendedor/gerente/director cuando una unidad cambia de estado.
 
 - **Repo remoto:** https://github.com/automatizacionia-stack/automind-planpiso (`origin/main`)
+- **Supabase project ref:** `wjdntftoyqkkycaozlhn` (usar en `npx supabase functions deploy ... --project-ref wjdntftoyqkkycaozlhn`)
 - **Hosting:** Vercel — https://automind-planpiso.vercel.app/ (deploy automático desde `main`)
 - **Backend:** Supabase (Postgres + Auth + Edge Functions)
 - **Idioma del producto y del código:** español (mantenerlo así).
