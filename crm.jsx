@@ -712,11 +712,25 @@ function _parseVigencia(s) {
 
 /* ── Etiquetas legibles de campos extraídos ──────────────────────────────── */
 const CAMPO_LABEL = {
+  /* Identificación / domicilio */
   nombre:"Nombre", apellidoPaterno:"Apellido paterno", apellidoMaterno:"Apellido materno",
-  curp:"CURP", rfc:"RFC", fechaNacimiento:"Fecha de nacimiento", sexo:"Sexo",
+  curp:"CURP", rfc:"RFC", regimenFiscal:"Régimen fiscal",
+  fechaNacimiento:"Fecha de nacimiento", sexo:"Sexo",
   direccion:"Dirección", colonia:"Colonia", ciudad:"Ciudad", estado:"Estado",
   cp:"C.P.", fechaDocumento:"Período del recibo",
+  numeroLicencia:"Núm. licencia", tipoLicencia:"Tipo", vigencia:"Vigencia",
+  /* Cotización */
+  precioVenta:"Precio de venta", descuento:"Descuento", montoFinanciado:"Monto financiado",
+  enganche:"Enganche", plazoMeses:"Plazo (meses)", mensualidad:"Mensualidad total",
+  modelo:"Modelo", version:"Versión", color:"Color",
+  /* Comprobante de pago */
+  monto:"Monto", fecha:"Fecha de pago", referencia:"Referencia", banco:"Banco", concepto:"Concepto",
+  /* Solicitud de crédito */
+  numMensualidades:"Mensualidades", montoMensualidad:"Mensualidad", tasaInteres:"Tasa (%)", institucion:"Institución",
 };
+
+/* Campos monetarios: mostrar con formato moneda en el panel de extracción */
+const CAMPO_MONTOS = new Set(["precioVenta","descuento","montoFinanciado","enganche","mensualidad","monto","montoMensualidad"]);
 
 /* Renderiza la primera página de un PDF a JPEG usando PDF.js (cargado en index.html) */
 function _pdfToImageDataUrl(dataUrl) {
@@ -1535,10 +1549,18 @@ function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombr
                     {Object.entries(campos).map(function(entry) {
                       var k = entry[0], v = entry[1];
                       var etiqueta = CAMPO_LABEL[k] || k;
+                      var valDisplay = v;
+                      if (CAMPO_MONTOS.has(k)) {
+                        var n = parseFloat(String(v).replace(/[$,]/g, "")) || 0;
+                        if (n > 0) valDisplay = n.toLocaleString("es-MX", {
+                          style:"currency", currency:"MXN",
+                          minimumFractionDigits:2, maximumFractionDigits:2
+                        });
+                      }
                       return (
                         <div key={k} style={{ display:"flex", gap:8, fontSize:12 }}>
                           <span style={{ color:"var(--muted)", minWidth:130, flexShrink:0 }}>{etiqueta}</span>
-                          <span style={{ fontWeight:600, color:"var(--ink)" }}>{v}</span>
+                          <span style={{ fontWeight:600, color:"var(--ink)" }}>{valDisplay}</span>
                         </div>
                       );
                     })}
@@ -4820,10 +4842,17 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                 set("descuentoMonto", 0);
               }
               // Recalcular mensualidad con el precio vigente
+              // EXCEPCIÓN: si la cotización ya tiene mensualidad extraída, no pisar ese valor
               var pvFinal = pvCot > 0 ? pvCot : u.precio;
               var eng   = Number(form.enganche)   || 0;
               var meses = Number(form.plazoMeses) || 0;
-              if (meses > 0) set("mensualidadEst", Math.round((pvFinal - eng) / meses * 100) / 100);
+              var _datCot = form.datosCotizacion;
+              var _mensualidadCot = _datCot && _datCot.mensualidad
+                ? (parseFloat(String(_datCot.mensualidad).replace(/[$,]/g, "")) || 0)
+                : 0;
+              if (meses > 0 && _mensualidadCot <= 0) {
+                set("mensualidadEst", Math.round((pvFinal - eng) / meses * 100) / 100);
+              }
             }
             setShowUnitPicker(false);
           }}

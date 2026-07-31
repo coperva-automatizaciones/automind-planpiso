@@ -160,8 +160,8 @@ Deno.serve(async (req: Request) => {
                   : PROMPT_DOM;
 
     const completion = await client.chat.completions.create({
-      model:      "gpt-4o-mini",
-      max_tokens: 600,
+      model:      "gpt-4o",
+      max_tokens: 800,
       messages: [{
         role: "user",
         content: [
