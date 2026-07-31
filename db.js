@@ -595,9 +595,9 @@
       fecha_factura:    toISO(v.fechaFactura),
       fecha_llegada:    toISO(v.fechaLlegada),
       foto_url:         v.fotoUrl          || v.foto || null,
-      // multi-vendedor: guardar array completo + primer elemento en campo legacy
+      // multi-vendedor: guardar array completo; campo legacy vendedor_id NO se escribe
+      // (se omite para evitar violaciones de FK cuando el usuario fue eliminado o no existe)
       vendedor_ids:     Array.isArray(v.vendedorIds) ? v.vendedorIds.filter(Boolean) : (v.vendedorId ? [v.vendedorId] : []),
-      vendedor_id:      (Array.isArray(v.vendedorIds) && v.vendedorIds.filter(Boolean)[0]) || v.vendedorId || null,
       estado_venta:     v.estadoVenta      || 'DISPONIBLE',
       fecha_venta:      toISO(v.fechaVenta) || null,
       // Persistir el semáforo actual para que la detección de cambios
