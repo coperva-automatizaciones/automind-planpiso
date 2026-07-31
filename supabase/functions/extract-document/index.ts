@@ -90,18 +90,24 @@ Omite cualquier campo que no sea claramente legible. Estructura esperada:
 IMPORTANTE: el campo 'monto' es crítico — devuelve SOLO el número, sin comas, puntos de miles ni símbolo $.
 Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
 
-const PROMPT_COTIZACION = `Analiza esta cotización de vehículo (puede ser cotización formal de agencia, hoja de oferta, formato de la plataforma de la agencia, o cualquier documento que establezca el precio de un vehículo incluyendo IVA y accesorios).
+const PROMPT_COTIZACION = `Analiza esta cotización de vehículo (cotización formal de agencia, hoja de oferta, o cualquier documento que establezca el precio final de un vehículo).
 Devuelve ÚNICAMENTE un objeto JSON válido con los campos que puedas leer con certeza.
 Omite cualquier campo que no sea claramente legible. Estructura esperada:
 {
-  "precioVenta":   "precio de venta total a pagar incluyendo IVA y accesorios, SOLO dígitos sin comas ni símbolo $ (ej: 468800). Si el documento muestra un precio 'total', 'precio final', 'precio con IVA' o 'precio de oferta', este es el campo. Si hay un solo precio relevante en el documento, úsalo aquí.",
-  "precioLista":   "precio de lista o precio base del vehículo antes de descuentos e IVA, SOLO dígitos sin comas ni símbolo $ (ej: 400000) — omite si no aparece explícitamente como precio base o precio de lista",
-  "descuento":     "monto de descuento aplicado en pesos, SOLO dígitos (ej: 5000) — omite si no hay descuento explícito",
-  "modelo":        "nombre del modelo del vehículo (ej: Tiguan, Jetta, Hilux) — omite si no aparece",
-  "version":       "versión o trim del vehículo (ej: Highline, Sport, Limited) — omite si no aparece",
-  "color":         "color del vehículo tal como aparece en la cotización (ej: Blanco Platino, Rojo Flash, Verde Avocado) — omite si no aparece"
+  "precioVenta":      "precio de venta final total que el cliente paga — busca el campo llamado 'Total', 'Precio de venta', 'Precio final', 'Precio con IVA y accesorios', o el monto más grande claramente etiquetado como precio final. SOLO dígitos y punto decimal si aplica, sin comas ni símbolo $ (ej: 795000 o 468800.50). NO sumes subtotales manualmente; toma el campo 'Total' o 'Precio final' tal como aparece impreso.",
+  "descuento":        "monto de descuento aplicado en pesos, solo dígitos (ej: 5000) — omite si no hay descuento explícito",
+  "montoFinanciado":  "monto a financiar o monto del préstamo — busca 'Monto a financiar', 'Monto del crédito', 'Financiamiento', 'Saldo a financiar'. SOLO dígitos y punto decimal si aplica, sin comas ni símbolo $ (ej: 636000) — omite si no aparece explícitamente",
+  "enganche":         "enganche o pago inicial — busca 'Enganche', 'Anticipo', 'Pago inicial'. SOLO dígitos (ej: 159000) — omite si no aparece",
+  "plazoMeses":       "número de mensualidades o plazo en meses (ej: 48) — omite si no aparece",
+  "modelo":           "nombre del modelo del vehículo (ej: Tiguan, Jetta, Hilux) — omite si no aparece",
+  "version":          "versión o trim del vehículo (ej: Highline, Sport, Limited) — omite si no aparece",
+  "color":            "color del vehículo tal como aparece en la cotización (ej: Blanco Platino, Rojo Flash) — omite si no aparece"
 }
-IMPORTANTE: los montos deben ser SOLO números, sin comas, puntos de miles ni símbolo $. 'precioVenta' es el campo crítico — captura el precio total definitivo que el cliente debe pagar.
+REGLAS CRÍTICAS:
+- Los montos son SOLO números (dígitos y punto decimal si aplica), sin comas de miles ni símbolo $.
+- 'precioVenta' es el TOTAL FINAL impreso en el documento — NO lo calcules ni sumes subtotales.
+- Si hay múltiples precios, toma el campo explícitamente etiquetado como total o precio final.
+- 'montoFinanciado' y 'enganche' solo si aparecen explícitamente; NO los derives del precio de venta.
 Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;
 
 const PROMPT_RFC = `Analiza esta Constancia de Situación Fiscal emitida por el SAT (México).

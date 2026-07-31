@@ -2884,26 +2884,40 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
           var n = Number(String(v).replace(/[$,]/g, "").trim());
           return isNaN(n) ? 0 : Math.round(n * 100) / 100;
         }
-        var pv = extractedCampos.precioVenta ? _parseMontoC(extractedCampos.precioVenta) : 0;
-        var pl = extractedCampos.precioLista ? _parseMontoC(extractedCampos.precioLista) : 0;
-        var dm = extractedCampos.descuento   ? _parseMontoC(extractedCampos.descuento)   : 0;
+        var pv  = extractedCampos.precioVenta     ? _parseMontoC(extractedCampos.precioVenta)     : 0;
+        var dm  = extractedCampos.descuento       ? _parseMontoC(extractedCampos.descuento)       : 0;
+        var mf  = extractedCampos.montoFinanciado ? _parseMontoC(extractedCampos.montoFinanciado) : 0;
+        var eng = extractedCampos.enganche        ? _parseMontoC(extractedCampos.enganche)        : 0;
+        var pl  = Number(prev.plazoMeses) || (extractedCampos.plazoMeses ? parseInt(extractedCampos.plazoMeses) : 0);
+
         // precioVenta de la cotización es el precio definitivo (incluye IVA + accesorios)
-        if (pv > 0) upd.precioVenta = pv;
-        if (pl > 0) {
-          upd.precioLista = pl;
-          // Si no hay descuento explícito, derivarlo de la diferencia
-          if (dm <= 0 && pv > 0) upd.descuentoMonto = Math.max(0, pl - pv);
-        } else if (pv > 0) {
-          // Sin precio de lista explícito, igualarlo al precio de venta
-          upd.precioLista = pv;
-          upd.descuentoMonto = 0;
+        // precioLista NO se toca — siempre viene de la unidad seleccionada en inventario
+        if (pv > 0) {
+          upd.precioVenta = pv;
+          // Recalcular descuento respecto al precio de lista actual
+          var listaActual = Number(prev.precioLista) || 0;
+          if (dm > 0) {
+            upd.descuentoMonto = dm;
+          } else if (listaActual > 0 && pv < listaActual) {
+            upd.descuentoMonto = Math.round((listaActual - pv) * 100) / 100;
+          }
         }
-        if (dm > 0) upd.descuentoMonto = dm;
-        // Recalcular mensualidad si hay plazo configurado
-        var pvFinal = pv || Number(prev.precioVenta) || 0;
-        var plazo   = Number(prev.plazoMeses) || 0;
-        var eng     = Number(prev.enganche)   || 0;
-        if (plazo > 0 && pvFinal > 0) upd.mensualidadEst = Math.round((pvFinal - eng) / plazo);
+        // Campos financieros de la cotización (si el banco los incluye)
+        if (mf > 0) { upd.montoFinanciado = mf; upd.e6MontoAprobado = mf; }
+        if (eng > 0) upd.enganche = eng;
+        if (extractedCampos.plazoMeses) {
+          var plazoExt = parseInt(extractedCampos.plazoMeses) || 0;
+          if (plazoExt > 0) upd.plazoMeses = plazoExt;
+        }
+        // Recalcular mensualidad con datos actualizados
+        var pvFinal  = pv  || Number(prev.precioVenta) || 0;
+        var engFinal = eng || Number(prev.enganche)    || 0;
+        var mfFinal  = mf  || Number(prev.montoFinanciado) || 0;
+        var plazoFinal = pl || Number(prev.plazoMeses) || 0;
+        if (plazoFinal > 0 && pvFinal > 0) {
+          var base = mfFinal > 0 ? mfFinal : Math.max(0, pvFinal - engFinal);
+          upd.mensualidadEst = Math.round(base / plazoFinal * 100) / 100;
+        }
         // Comparar vehículo extraído contra el seleccionado (usa la misma lógica del panel)
         var modeloExt = (extractedCampos.modelo || "").trim();
         var versionExt = (extractedCampos.version || "").trim();
