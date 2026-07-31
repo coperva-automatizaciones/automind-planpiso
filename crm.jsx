@@ -2884,11 +2884,12 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
           var n = Number(String(v).replace(/[$,]/g, "").trim());
           return isNaN(n) ? 0 : Math.round(n * 100) / 100;
         }
-        var pv  = extractedCampos.precioVenta     ? _parseMontoC(extractedCampos.precioVenta)     : 0;
-        var dm  = extractedCampos.descuento       ? _parseMontoC(extractedCampos.descuento)       : 0;
-        var mf  = extractedCampos.montoFinanciado ? _parseMontoC(extractedCampos.montoFinanciado) : 0;
-        var eng = extractedCampos.enganche        ? _parseMontoC(extractedCampos.enganche)        : 0;
-        var pl  = Number(prev.plazoMeses) || (extractedCampos.plazoMeses ? parseInt(extractedCampos.plazoMeses) : 0);
+        var pv   = extractedCampos.precioVenta     ? _parseMontoC(extractedCampos.precioVenta)     : 0;
+        var dm   = extractedCampos.descuento       ? _parseMontoC(extractedCampos.descuento)       : 0;
+        var mf   = extractedCampos.montoFinanciado ? _parseMontoC(extractedCampos.montoFinanciado) : 0;
+        var eng  = extractedCampos.enganche        ? _parseMontoC(extractedCampos.enganche)        : 0;
+        var mens = extractedCampos.mensualidad     ? _parseMontoC(extractedCampos.mensualidad)     : 0;
+        var plazoExt = extractedCampos.plazoMeses  ? (parseInt(extractedCampos.plazoMeses) || 0)   : 0;
 
         // precioVenta de la cotización es el precio definitivo (incluye IVA + accesorios)
         // precioLista NO se toca — siempre viene de la unidad seleccionada en inventario
@@ -2902,21 +2903,22 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
             upd.descuentoMonto = Math.round((listaActual - pv) * 100) / 100;
           }
         }
-        // Campos financieros de la cotización (si el banco los incluye)
-        if (mf > 0) { upd.montoFinanciado = mf; upd.e6MontoAprobado = mf; }
-        if (eng > 0) upd.enganche = eng;
-        if (extractedCampos.plazoMeses) {
-          var plazoExt = parseInt(extractedCampos.plazoMeses) || 0;
-          if (plazoExt > 0) upd.plazoMeses = plazoExt;
-        }
-        // Recalcular mensualidad con datos actualizados
-        var pvFinal  = pv  || Number(prev.precioVenta) || 0;
-        var engFinal = eng || Number(prev.enganche)    || 0;
-        var mfFinal  = mf  || Number(prev.montoFinanciado) || 0;
-        var plazoFinal = pl || Number(prev.plazoMeses) || 0;
-        if (plazoFinal > 0 && pvFinal > 0) {
-          var base = mfFinal > 0 ? mfFinal : Math.max(0, pvFinal - engFinal);
-          upd.mensualidadEst = Math.round(base / plazoFinal * 100) / 100;
+        // Campos financieros extraídos directamente del documento
+        if (mf   > 0) { upd.montoFinanciado = mf; upd.e6MontoAprobado = mf; }
+        if (eng  > 0) upd.enganche   = eng;
+        if (plazoExt > 0) upd.plazoMeses = plazoExt;
+        // Mensualidad: primero del documento, solo calcular si no aparece
+        if (mens > 0) {
+          upd.mensualidadEst = mens;
+        } else {
+          var pvFinal    = pv        || Number(prev.precioVenta)      || 0;
+          var engFinal   = eng       || Number(prev.enganche)         || 0;
+          var mfFinal    = mf        || Number(prev.montoFinanciado)  || 0;
+          var plazoFinal = plazoExt  || Number(prev.plazoMeses)       || 0;
+          if (plazoFinal > 0 && (mfFinal > 0 || pvFinal > 0)) {
+            var base = mfFinal > 0 ? mfFinal : Math.max(0, pvFinal - engFinal);
+            upd.mensualidadEst = Math.round(base / plazoFinal * 100) / 100;
+          }
         }
         // Comparar vehículo extraído contra el seleccionado (usa la misma lógica del panel)
         var modeloExt = (extractedCampos.modelo || "").trim();

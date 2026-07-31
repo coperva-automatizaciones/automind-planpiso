@@ -99,6 +99,7 @@ Omite cualquier campo que no sea claramente legible. Estructura esperada:
   "montoFinanciado":  "monto a financiar o monto del préstamo — busca 'Monto a financiar', 'Monto del crédito', 'Financiamiento', 'Saldo a financiar'. SOLO dígitos y punto decimal si aplica, sin comas ni símbolo $ (ej: 636000) — omite si no aparece explícitamente",
   "enganche":         "enganche o pago inicial — busca 'Enganche', 'Anticipo', 'Pago inicial'. SOLO dígitos (ej: 159000) — omite si no aparece",
   "plazoMeses":       "número de mensualidades o plazo en meses (ej: 48) — omite si no aparece",
+  "mensualidad":      "monto de cada mensualidad o pago mensual — busca 'Mensualidad', 'Pago mensual', 'Cuota mensual', 'Mensualidad estimada'. SOLO dígitos y punto decimal si aplica, sin comas ni símbolo $ (ej: 13250.50) — omite si no aparece explícitamente en el documento",
   "modelo":           "nombre del modelo del vehículo (ej: Tiguan, Jetta, Hilux) — omite si no aparece",
   "version":          "versión o trim del vehículo (ej: Highline, Sport, Limited) — omite si no aparece",
   "color":            "color del vehículo tal como aparece en la cotización (ej: Blanco Platino, Rojo Flash) — omite si no aparece"
