@@ -398,7 +398,7 @@
         "| directorEmails:", directorEmails);
 
       const vehicleDesc = [v.marca, v.modelo, v.anio].filter(Boolean).join(" ");
-      await fetch(`${window.SUPABASE_URL}/functions/v1/send-alert`, {
+      const alertResp = await fetch(`${window.SUPABASE_URL}/functions/v1/send-alert`, {
         method: "POST",
         headers: {
           "Content-Type":  "application/json",
@@ -420,6 +420,12 @@
           directorEmails,
         }),
       });
+      try {
+        const alertJson = await alertResp.json();
+        console.log("[send-alert] respuesta HTTP", alertResp.status, alertJson);
+      } catch(_) {
+        console.log("[send-alert] respuesta HTTP", alertResp.status, "(sin JSON)");
+      }
     } catch(e) {
       console.warn("Alert trigger failed (non-critical):", e.message);
     }
