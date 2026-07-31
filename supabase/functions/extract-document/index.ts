@@ -98,7 +98,8 @@ Omite cualquier campo que no sea claramente legible. Estructura esperada:
   "precioLista":   "precio de lista o precio base del vehículo antes de descuentos e IVA, SOLO dígitos sin comas ni símbolo $ (ej: 400000) — omite si no aparece explícitamente como precio base o precio de lista",
   "descuento":     "monto de descuento aplicado en pesos, SOLO dígitos (ej: 5000) — omite si no hay descuento explícito",
   "modelo":        "nombre del modelo del vehículo (ej: Tiguan, Jetta, Hilux) — omite si no aparece",
-  "version":       "versión o trim del vehículo (ej: Highline, Sport, Limited) — omite si no aparece"
+  "version":       "versión o trim del vehículo (ej: Highline, Sport, Limited) — omite si no aparece",
+  "color":         "color del vehículo tal como aparece en la cotización (ej: Blanco Platino, Rojo Flash, Verde Avocado) — omite si no aparece"
 }
 IMPORTANTE: los montos deben ser SOLO números, sin comas, puntos de miles ni símbolo $. 'precioVenta' es el campo crítico — captura el precio total definitivo que el cliente debe pagar.
 Responde SOLO con el JSON. Sin explicaciones, sin markdown, sin bloques de código.`;

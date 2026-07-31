@@ -1251,13 +1251,45 @@ function imprimirExpediente(form) {
   setTimeout(function() { w.focus(); }, 300);
 }
 
+/* ── Compara campos de una cotización contra la descripción de la unidad ─── */
+function _compararConUnidad(campos, unidadDesc) {
+  if (!campos || !unidadDesc) return null;
+  var desc = unidadDesc.toLowerCase();
+  var problemas = [];
+
+  /* Modelo — crítico: si no coincide la cotización es del vehículo equivocado */
+  var modeloExt = (campos.modelo || "").trim();
+  if (modeloExt) {
+    var modeloLow = modeloExt.toLowerCase();
+    var palabras = modeloLow.split(/\s+/).filter(function(p){ return p.length > 2; });
+    var modeloOk = palabras.length > 0
+      ? palabras.some(function(p){ return desc.includes(p); })
+      : desc.includes(modeloLow);
+    if (!modeloOk) problemas.push({ campo:"Modelo", extraido:modeloExt, critico:true });
+  }
+
+  /* Color — advertencia (los colores tienen múltiples nombres comerciales) */
+  var colorExt = (campos.color || "").trim();
+  if (colorExt && !problemas.some(function(p){ return p.critico; })) {
+    var colorLow = colorExt.toLowerCase();
+    var colorPalab = colorLow.split(/\s+/).filter(function(p){ return p.length > 2; });
+    var colorOk = colorPalab.length === 0
+      || colorPalab.some(function(p){ return desc.includes(p); });
+    if (!colorOk) problemas.push({ campo:"Color", extraido:colorExt, critico:false });
+  }
+
+  var tieneError = problemas.some(function(p){ return p.critico; });
+  return { coincide: problemas.length === 0, tieneError: tieneError, problemas: problemas };
+}
+
 /* ── Zona de carga de documento con extracción IA ────────────────────────── */
-function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombreReferencia, readOnly }) {
+function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombreReferencia, readOnly, unidadInfo }) {
   const [dragging,    setDragging]    = React.useState(false);
   const [extrayendo,  setExtrayendo]  = React.useState(false);
   const [campos,      setCampos]      = React.useState(null);   // null | {} | {k:v}
   const [errExt,      setErrExt]      = React.useState(null);
   const [subiendoDoc, setSubiendoDoc] = React.useState(false);
+  const [vehiculoMatch, setVehiculoMatch] = React.useState(null); // null | { coincide, tieneError, problemas[] }
   const inputRef = React.useRef(null);
 
   /* Resetear extracción cuando el doc cambia */
@@ -1322,7 +1354,13 @@ function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombr
       });
       var data = await resp.json();
       if (!data.ok) throw new Error(data.error || "Error en el servidor");
-      setCampos(data.campos || {});
+      var camposExtraidos = data.campos || {};
+      setCampos(camposExtraidos);
+      if (docType === "cotizacion" && unidadInfo && unidadInfo.desc) {
+        setVehiculoMatch(_compararConUnidad(camposExtraidos, unidadInfo.desc));
+      } else {
+        setVehiculoMatch(null);
+      }
     } catch(e) {
       setErrExt(e.message || "Error al extraer");
     } finally {
@@ -1333,6 +1371,7 @@ function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombr
   function aplicar() {
     if (onExtract && campos) onExtract(campos);
     setCampos(null);
+    setVehiculoMatch(null);
   }
 
   var isSaved = !!(value && value.storageKey && !value.dataUrl);
@@ -1485,7 +1524,7 @@ function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombr
                     {tieneCampos ? "Información extraída" : "Sin datos detectados"}
                   </span>
                 </div>
-                <button onClick={() => setCampos(null)}
+                <button onClick={() => { setCampos(null); setVehiculoMatch(null); }}
                   style={{ border:"none", background:"none", color:"#6b7280", cursor:"pointer", fontSize:13 }}>✕</button>
               </div>
 
@@ -1578,6 +1617,45 @@ function DocUpload({ label, sublabel, docType, value, onChange, onExtract, nombr
                       </div>
                     );
                   })()}
+
+                  {/* ── Validación: vehículo de la cotización vs unidad seleccionada ── */}
+                  {docType === "cotizacion" && vehiculoMatch && unidadInfo && (
+                    <div style={{ margin:"0 14px 10px", padding:"10px 12px", borderRadius:8,
+                      background: vehiculoMatch.coincide ? "#f0fdf4" : vehiculoMatch.tieneError ? "#fef2f2" : "#fffbeb",
+                      border:"1px solid " + (vehiculoMatch.coincide ? "#a7f3d0" : vehiculoMatch.tieneError ? "#fecaca" : "#fde68a"),
+                      display:"flex", alignItems:"flex-start", gap:8 }}>
+                      <span style={{ fontWeight:800, fontSize:15, lineHeight:"20px", flexShrink:0,
+                        color: vehiculoMatch.coincide ? "#059669" : vehiculoMatch.tieneError ? "#dc2626" : "#d97706" }}>
+                        {vehiculoMatch.coincide ? "✓" : vehiculoMatch.tieneError ? "✗" : "⚠"}
+                      </span>
+                      <div style={{ fontSize:12, lineHeight:"18px", minWidth:0 }}>
+                        <div style={{ fontWeight:700,
+                          color: vehiculoMatch.coincide ? "#065f46" : vehiculoMatch.tieneError ? "#991b1b" : "#92400e" }}>
+                          {vehiculoMatch.coincide
+                            ? "Cotización corresponde a la unidad seleccionada"
+                            : vehiculoMatch.tieneError
+                              ? "La cotización NO corresponde a la unidad seleccionada"
+                              : "Posible discrepancia de color — verificar"}
+                        </div>
+                        {vehiculoMatch.problemas.length > 0 && (
+                          <div style={{ marginTop:3 }}>
+                            {vehiculoMatch.problemas.map(function(p, i) {
+                              return (
+                                <div key={i} style={{ color: p.critico ? "#991b1b" : "#92400e", marginTop:2 }}>
+                                  {p.critico ? "✗" : "⚠"} {p.campo}: la cotización dice «<strong>{p.extraido}</strong>»
+                                  {p.critico ? ", diferente a la unidad" : " — puede ser nombre comercial diferente"}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <div style={{ marginTop:4, fontSize:11, color:"#6b7280",
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          Unidad seleccionada: {unidadInfo.desc}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Aplicar */}
                   <div style={{ padding:"9px 14px", borderTop:"1px solid #a7f3d0", background:"#f0fdf4" }}>
@@ -2826,16 +2904,14 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
         var plazo   = Number(prev.plazoMeses) || 0;
         var eng     = Number(prev.enganche)   || 0;
         if (plazo > 0 && pvFinal > 0) upd.mensualidadEst = Math.round((pvFinal - eng) / plazo);
-        // Comparar vehículo extraído contra el seleccionado
+        // Comparar vehículo extraído contra el seleccionado (usa la misma lógica del panel)
         var modeloExt = (extractedCampos.modelo || "").trim();
         var versionExt = (extractedCampos.version || "").trim();
         if (modeloExt) {
           upd.cotizacionModeloExtract = modeloExt + (versionExt ? " " + versionExt : "");
           if (prev.unidadId && prev.unidadDesc) {
-            var descNorm = prev.unidadDesc.toLowerCase();
-            var modeloNorm = modeloExt.toLowerCase();
-            // Coincide si el modelo aparece en la descripción del vehículo seleccionado
-            upd.cotizacionVehiculoMatch = descNorm.includes(modeloNorm);
+            var matchRes = _compararConUnidad(extractedCampos, prev.unidadDesc);
+            upd.cotizacionVehiculoMatch = matchRes ? !matchRes.tieneError : null;
           } else {
             upd.cotizacionVehiculoMatch = null; // no hay vehículo seleccionado aún
           }
@@ -3685,6 +3761,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   value={form.docCotizacion || null}
                   onChange={v => set("docCotizacion", v)}
                   readOnly={false}
+                  unidadInfo={form.unidadId ? { desc: form.unidadDesc } : null}
                   onExtract={campos => aplicarCampos(campos, "cotizacion")} />
                 {form.docCotizacion && form.precioVenta > 0 && (
                   <div style={{
