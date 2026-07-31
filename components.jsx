@@ -172,17 +172,21 @@ function Sidebar({ view, setView, onMenu, tablaActiva, tenant, onLogout, onSwitc
           <>
             <div className="brand-scrim" onClick={() => setOpen(false)} />
             <div className="brand-menu">
-              <button className="bm-row" onClick={() => act("editar")}>
-                <span className="bm-ico2">{I.grid({ width: 17, height: 17 })}</span>
-                <span className="bm-txt">Editar páginas</span>
-                <span className="bm-kbd">ALT 1</span>
-              </button>
-              <button className="bm-row" onClick={() => act("datos")}>
-                <span className="bm-ico2">{I.table({ width: 17, height: 17 })}</span>
-                <span className="bm-txt">Ver datos</span>
-                <span className="bm-kbd">ALT 2</span>
-              </button>
-              <div className="bm-sep" />
+              {usuarioActual?.rol !== "vendedor" && (
+                <button className="bm-row" onClick={() => act("editar")}>
+                  <span className="bm-ico2">{I.grid({ width: 17, height: 17 })}</span>
+                  <span className="bm-txt">Editar páginas</span>
+                  <span className="bm-kbd">ALT 1</span>
+                </button>
+              )}
+              {usuarioActual?.rol !== "vendedor" && (
+                <button className="bm-row" onClick={() => act("datos")}>
+                  <span className="bm-ico2">{I.table({ width: 17, height: 17 })}</span>
+                  <span className="bm-txt">Ver datos</span>
+                  <span className="bm-kbd">ALT 2</span>
+                </button>
+              )}
+              {usuarioActual?.rol !== "vendedor" && <div className="bm-sep" />}
               <button className="bm-row" onClick={() => act("inicio")}>
                 <span className="bm-ico2">{I.back({ width: 17, height: 17 })}</span>
                 <span className="bm-txt">Volver al inicio</span>
