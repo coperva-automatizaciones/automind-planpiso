@@ -1127,7 +1127,7 @@ function imprimirExpediente(form) {
   };
   var fmtMon = function(n) {
     if (!n) return "—";
-    return Number(n).toLocaleString("es-MX", { style:"currency", currency:"MXN", minimumFractionDigits:0 });
+    return Number(n).toLocaleString("es-MX", { style:"currency", currency:"MXN", minimumFractionDigits:2, maximumFractionDigits:2 });
   };
   var row = function(lbl, val) {
     if (!val || val === "—") return "";
@@ -3895,7 +3895,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                     background:"var(--bg)", fontSize:14, fontWeight:700, color:"var(--accent)",
                   }}>
                     {form.mensualidadEst > 0
-                      ? "$" + Number(form.mensualidadEst).toLocaleString("es-MX")
+                      ? "$" + Number(form.mensualidadEst).toLocaleString("es-MX", {minimumFractionDigits:2, maximumFractionDigits:2})
                       : <span style={{ fontWeight:400, fontSize:12, color:"var(--muted)" }}>
                           Se calcula al ingresar enganche y plazo
                         </span>
@@ -3916,54 +3916,39 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
             {/* ── Solicitud de crédito (solo cuando forma = Crédito) ── */}
             {form.formaPagoCot === "Crédito" && (
             <Sec ico="📋" titulo="Solicitud de crédito" defaultOpen>
-              {/* Upload del formato con extracción IA */}
-              <Fld label="Formato de solicitud" full>
-                <DocUpload
-                  label="Solicitud de crédito firmada"
-                  sublabel="IA extrae monto, mensualidades y plazo"
-                  docType="solicitud_credito"
-                  value={form.docCredSolicitud || null}
-                  onChange={v => set("docCredSolicitud", v)}
-                  readOnly={esVendedor}
-                  onExtract={campos => aplicarCampos(campos, "solicitud_credito")} />
-              </Fld>
-
-              {/* Resumen financiero extraído del documento */}
               <Fld label="Monto financiado ($)">
-                <div style={{
-                  padding:"7px 10px", borderRadius:7, border:"1px solid var(--line)",
-                  background:"var(--bg)", fontSize:13, fontWeight:700, color:"var(--accent)",
-                }}>
-                  {form.montoFinanciado > 0
-                    ? "$" + Number(form.montoFinanciado).toLocaleString("es-MX")
-                    : <span style={{ fontWeight:400, fontSize:12, color:"var(--muted)" }}>
-                        Se extrae de la solicitud de crédito
-                      </span>}
-                </div>
+                <input type="number" className="ef-input" style={IS} min="0" step="0.01"
+                  value={form.montoFinanciado || ""}
+                  placeholder="0.00"
+                  readOnly={esVendedor}
+                  onChange={e => {
+                    var v = parseFloat(e.target.value) || 0;
+                    set("montoFinanciado", v);
+                    set("e6MontoAprobado", v);
+                    var meses = Number(form.plazoMeses) || 0;
+                    var eng   = Number(form.enganche)   || 0;
+                    if (meses > 0) set("mensualidadEst", Math.round((v - eng) / meses * 100) / 100);
+                  }} />
               </Fld>
               <Fld label="Número de mensualidades">
-                <div style={{
-                  padding:"7px 10px", borderRadius:7, border:"1px solid var(--line)",
-                  background:"var(--bg)", fontSize:13, fontWeight:700, color:"var(--ink)",
-                }}>
-                  {form.plazoMeses
-                    ? form.plazoMeses + " meses"
-                    : <span style={{ fontWeight:400, fontSize:12, color:"var(--muted)" }}>
-                        Se extrae de la solicitud de crédito
-                      </span>}
-                </div>
+                <input type="number" className="ef-input" style={IS} min="0" step="1"
+                  value={form.plazoMeses || ""}
+                  placeholder="0"
+                  readOnly={esVendedor}
+                  onChange={e => {
+                    var meses = parseInt(e.target.value) || 0;
+                    set("plazoMeses", meses);
+                    var v   = Number(form.montoFinanciado) || 0;
+                    var eng = Number(form.enganche)        || 0;
+                    if (meses > 0 && v > 0) set("mensualidadEst", Math.round((v - eng) / meses * 100) / 100);
+                  }} />
               </Fld>
               <Fld label="Monto de mensualidad ($)">
-                <div style={{
-                  padding:"7px 10px", borderRadius:7, border:"1px solid var(--line)",
-                  background:"var(--bg)", fontSize:13, fontWeight:700, color:"var(--accent)",
-                }}>
-                  {form.mensualidadEst > 0
-                    ? "$" + Number(form.mensualidadEst).toLocaleString("es-MX")
-                    : <span style={{ fontWeight:400, fontSize:12, color:"var(--muted)" }}>
-                        Se extrae de la solicitud de crédito
-                      </span>}
-                </div>
+                <input type="number" className="ef-input" style={IS} min="0" step="0.01"
+                  value={form.mensualidadEst || ""}
+                  placeholder="0.00"
+                  readOnly={esVendedor}
+                  onChange={e => set("mensualidadEst", parseFloat(e.target.value) || 0)} />
               </Fld>
             </Sec>
             )}
