@@ -2615,6 +2615,8 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
   const [verifyStates, setVerifyStates]   = React.useState({ tel: null, email: null }); /* #01 verificación */
   const [delConfirm,   setDelConfirm]     = React.useState(false); /* confirmación eliminar cliente */
   const [delEliminando, setDelEliminando] = React.useState(false);
+  const [confirmE6,   setConfirmE6]   = React.useState(null); /* { nuevoEstado, colorTxt } */
+  const [guardandoE6, setGuardandoE6] = React.useState(false);
 
   /* Vendedor: puede ver documentos pero no subirlos ni quitarlos */
   const esVendedor = !!(usuarioActual && usuarioActual.rol === "vendedor");
@@ -4098,19 +4100,40 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
               var estad = form.e6Estado || "Pendiente";
               var cfg6  = COLOR_E6[estad] || COLOR_E6["Pendiente"];
               return (
-                <Sec ico={ICO_BANK} titulo="Proceso de crédito (E6)" defaultOpen>
+                <Sec ico={ICO_BANK} titulo="Proceso de crédito" defaultOpen>
                   <Fld label="Estado del crédito" full>
-                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                      {ESTADOS_E6.map(op => (
-                        <button key={op} type="button" onClick={() => { set("e6Estado", op); if (op === "Rechazado") set("prob", 10); }}
-                          style={{
-                            padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight:600,
-                            border:"1px solid var(--line)", cursor:"pointer", transition:"all .15s",
-                            background: estad === op ? COLOR_E6[op].dot : "var(--card)",
-                            color:       estad === op ? "#fff"           : "var(--muted)",
-                          }}>{op}</button>
-                      ))}
-                    </div>
+                    {(function() {
+                      var canEdit = !!(usuarioActual && (
+                        usuarioActual.rol === "gerente" ||
+                        usuarioActual.rol === "director" ||
+                        usuarioActual.isSuperAdmin ||
+                        usuarioActual.isAgencyOwner
+                      ));
+                      return (<>
+                        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                          {ESTADOS_E6.map(function(op) {
+                            return (
+                              <button key={op} type="button"
+                                disabled={!canEdit}
+                                onClick={canEdit ? function() { setConfirmE6({ nuevoEstado: op, colorTxt: COLOR_E6[op].txt }); } : undefined}
+                                style={{
+                                  padding:"5px 12px", borderRadius:7, fontSize:12, fontWeight:600,
+                                  border:"1px solid var(--line)", transition:"all .15s",
+                                  cursor: canEdit ? "pointer" : "default",
+                                  background: estad === op ? COLOR_E6[op].dot : "var(--card)",
+                                  color:       estad === op ? "#fff"           : "var(--muted)",
+                                  opacity: !canEdit ? 0.7 : 1,
+                                }}>{op}</button>
+                            );
+                          })}
+                        </div>
+                        {!canEdit && (
+                          <div style={{ fontSize:11, color:"var(--muted)", marginTop:5 }}>
+                            Solo gerentes o directores pueden cambiar este estado.
+                          </div>
+                        )}
+                      </>);
+                    })()}
                   </Fld>
                   <Fld label="Institución financiera">
                     <input className="ef-input" style={IS}
@@ -4385,6 +4408,60 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                       value={form.e5Notas || ""}
                       onChange={e => set("e5Notas", e.target.value)}
                       placeholder="Motivo de rechazo, condiciones especiales, instrucciones al asesor..." />
+                  </Fld>
+                </Sec>
+              );
+            })()}
+
+            {/* § DOCUMENTOS DE CUMPLIMIENTO — Lavado de dinero + Conformación */}
+            {(function() {
+              var ICO_SHIELD = (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);
+              var tipo = form.docLavadoDineroTipo || "fisica";
+              var TIPOS = [
+                { val:"fisica", label:"Persona Física" },
+                { val:"moral",  label:"Persona Moral"  },
+              ];
+              return (
+                <Sec ico={ICO_SHIELD} titulo="Documentos de cumplimiento" defaultOpen>
+                  {/* Lavado de dinero */}
+                  <Fld label="Prevención de lavado de dinero" full>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {/* Selector PF / PM */}
+                      <div style={{ display:"flex", gap:6 }}>
+                        {TIPOS.map(function(t) {
+                          var sel = tipo === t.val;
+                          return (
+                            <button key={t.val} type="button"
+                              onClick={() => { set("docLavadoDineroTipo", t.val); set("docLavadoDinero", null); }}
+                              style={{
+                                padding:"5px 14px", borderRadius:7, fontSize:12, fontWeight:600,
+                                border: sel ? "1px solid var(--accent)" : "1px solid var(--line)",
+                                background: sel ? "var(--accent)" : "var(--bg)",
+                                color: sel ? "#fff" : "var(--ink-2)",
+                                cursor: "pointer",
+                                transition:"all .15s",
+                              }}>
+                              {t.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <DocSimpleUpload
+                        label={"Formulario de " + (tipo === "fisica" ? "persona física" : "persona moral")}
+                        sublabel="JPG · PNG · PDF"
+                        value={form.docLavadoDinero || null}
+                        onChange={v => set("docLavadoDinero", v)}
+                        readOnly={false} />
+                    </div>
+                  </Fld>
+                  {/* Conformación */}
+                  <Fld label="Conformación" full>
+                    <DocSimpleUpload
+                      label="Documento de conformación"
+                      sublabel="JPG · PNG · PDF"
+                      value={form.docConformacion || null}
+                      onChange={v => set("docConformacion", v)}
+                      readOnly={false} />
                   </Fld>
                 </Sec>
               );
@@ -4858,6 +4935,79 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
           }}
           onClose={() => setShowUnitPicker(false)}
         />
+      )}
+
+      {/* ── Modal confirmación cambio Estado del Crédito ── */}
+      {confirmE6 && form && (
+        <div style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:3000,
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }} onClick={() => !guardandoE6 && setConfirmE6(null)}>
+          <div style={{
+            background:"var(--card)", borderRadius:14, padding:"28px 28px 22px",
+            width:380, maxWidth:"92vw", boxShadow:"0 20px 60px rgba(0,0,0,.3)",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:24, textAlign:"center", marginBottom:10 }}>🏦</div>
+            <h3 style={{ margin:"0 0 6px", textAlign:"center", fontSize:16, fontWeight:800, color:"var(--ink)" }}>
+              Cambiar estado del crédito
+            </h3>
+            <p style={{ margin:"0 0 20px", textAlign:"center", color:"var(--muted)", fontSize:14, lineHeight:1.5 }}>
+              ¿Confirmas cambiar el estado a{" "}
+              <strong style={{ color: confirmE6.colorTxt }}>{confirmE6.nuevoEstado}</strong>?
+              <br />
+              <span style={{ fontSize:12 }}>El cambio se guardará de inmediato.</span>
+            </p>
+            {confirmE6.error && (
+              <div style={{
+                padding:"8px 12px", marginBottom:14, borderRadius:8, fontSize:12, textAlign:"center",
+                background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.25)", color:"#dc2626",
+              }}>{confirmE6.error}</div>
+            )}
+            <div style={{ display:"flex", gap:10 }}>
+              <button
+                disabled={guardandoE6}
+                onClick={() => setConfirmE6(null)}
+                style={{
+                  flex:1, padding:"10px 0", borderRadius:9, border:"1px solid var(--line)",
+                  background:"var(--bg)", color:"var(--ink)", fontWeight:600, fontSize:14,
+                  cursor: guardandoE6 ? "not-allowed" : "pointer", fontFamily:"inherit",
+                }}>
+                Cancelar
+              </button>
+              <button
+                disabled={guardandoE6}
+                onClick={async function() {
+                  setGuardandoE6(true);
+                  try {
+                    var nuevoEstado = confirmE6.nuevoEstado;
+                    var updForm = Object.assign({}, form, { e6Estado: nuevoEstado });
+                    if (nuevoEstado === "Rechazado") updForm.prob = 10;
+                    var agencyId = window.AUTOMIND && window.AUTOMIND.agencyId;
+                    await window.DB.saveCliente(agencyId, updForm);
+                    setForm(updForm);
+                    setDirty(false);
+                    setConfirmE6(null);
+                  } catch(err) {
+                    setConfirmE6(function(prev) {
+                      return Object.assign({}, prev, { error: err.message || "Error al guardar" });
+                    });
+                  } finally {
+                    setGuardandoE6(false);
+                  }
+                }}
+                style={{
+                  flex:1, padding:"10px 0", borderRadius:9, border:"none",
+                  background: guardandoE6 ? "var(--line)" : "var(--accent)",
+                  color:"#fff", fontWeight:700, fontSize:14,
+                  cursor: guardandoE6 ? "not-allowed" : "pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:6, fontFamily:"inherit",
+                }}>
+                {guardandoE6 && <span className="login-spinner" style={{ width:13, height:13, borderWidth:2 }} />}
+                {guardandoE6 ? "Guardando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Modal confirmación eliminar cliente ── */}

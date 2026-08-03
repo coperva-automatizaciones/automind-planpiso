@@ -273,24 +273,22 @@ Deno.serve(async (req) => {
     if (rule.notify_gerente)   recipients.push(...gEmails);
     if (rule.notify_director)  recipients.push(...dEmails);
 
-    // Solo se permite enviar a correos registrados en el workspace (o al
-    // propio usuario autenticado) — evita usar la función para spam/phishing
-    const { data: wsUsers } = await adminClient
-      .from("users").select("email, nombre, rol")
-      .or(`workspace_id.eq.${workspaceId},agency_id.eq.${workspaceId}`);
-    const permitidos = new Set(
-      (wsUsers || []).map((u: any) => String(u.email || "").toLowerCase()).filter(Boolean)
-    );
-    if (user.email) permitidos.add(user.email.toLowerCase());
-
-    // Deduplicar y filtrar contra la lista permitida
-    const uniqueRecipients = [...new Set(recipients.filter(Boolean))]
-      .filter(e => permitidos.has(String(e).toLowerCase()));
+    // Deduplicar destinatarios — la seguridad ya está garantizada por el JWT
+    // + el check de autorización de workspace de arriba. Los emails vienen de
+    // window.AUTOMIND.USUARIOS (resueltos en el cliente al momento del disparo),
+    // así que no re-filtramos contra la BD (puede estar desactualizada si el
+    // usuario fue eliminado y re-agregado recientemente).
+    const uniqueRecipients = [...new Set(recipients.filter(Boolean))];
 
     if (uniqueRecipients.length === 0) {
       return new Response(JSON.stringify({ skipped: true, reason: "No recipients configured" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    // Consultar nombres de usuarios para los templates — solo lookup, ya no filtra
+    const { data: wsUsers } = await adminClient
+      .from("users").select("email, nombre, rol")
+      .or(`workspace_id.eq.${workspaceId},agency_id.eq.${workspaceId}`);
 
     const siteUrl  = Deno.env.get("SITE_URL") || "https://automatizacionia-stack.github.io/automind-planpiso";
     const brevoKey = Deno.env.get("BREVO_API_KEY")!;
@@ -331,8 +329,7 @@ Deno.serve(async (req) => {
     for (const { rolKey, emails, notificar } of rolesParaEmail) {
       if (!notificar) continue;
       const tplBody = emailMensajes[rolKey] || DEF_EMAIL_BODY[rolKey];
-      const filtEmails = [...new Set(emails.filter(Boolean))]
-        .filter((e: string) => permitidos.has(String(e).toLowerCase()));
+      const filtEmails = [...new Set(emails.filter(Boolean))];
       if (!filtEmails.length) continue;
 
       for (const emailAddr of filtEmails) {

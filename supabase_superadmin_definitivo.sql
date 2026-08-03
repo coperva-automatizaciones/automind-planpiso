@@ -370,6 +370,45 @@ CREATE POLICY "tg_tokens_own_insert" ON public.telegram_link_tokens FOR INSERT
   );
 
 
+-- ── 18. super_admin_audit_log ────────────────────────────────────────
+DROP POLICY IF EXISTS "audit_log_select" ON public.super_admin_audit_log;
+DROP POLICY IF EXISTS "audit_log_insert" ON public.super_admin_audit_log;
+
+CREATE POLICY "audit_log_select" ON public.super_admin_audit_log FOR SELECT
+  USING (is_super_admin());
+CREATE POLICY "audit_log_insert" ON public.super_admin_audit_log FOR INSERT
+  WITH CHECK (is_super_admin());
+
+
+-- ── 19. encuesta_prospeccion ──────────────────────────────────────────
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'encuesta_prospeccion' AND schemaname = 'public') THEN
+    DROP POLICY IF EXISTS "enc_select" ON public.encuesta_prospeccion;
+    DROP POLICY IF EXISTS "enc_insert" ON public.encuesta_prospeccion;
+    DROP POLICY IF EXISTS "enc_update" ON public.encuesta_prospeccion;
+    DROP POLICY IF EXISTS "enc_delete" ON public.encuesta_prospeccion;
+    EXECUTE $q$
+      CREATE POLICY "enc_select" ON public.encuesta_prospeccion FOR SELECT USING (is_super_admin() OR workspace_id = ANY(SELECT my_workspace_ids()));
+      CREATE POLICY "enc_insert" ON public.encuesta_prospeccion FOR INSERT WITH CHECK (is_super_admin() OR workspace_id = ANY(SELECT my_workspace_ids()));
+      CREATE POLICY "enc_update" ON public.encuesta_prospeccion FOR UPDATE USING (is_super_admin() OR workspace_id = ANY(SELECT my_workspace_ids()));
+      CREATE POLICY "enc_delete" ON public.encuesta_prospeccion FOR DELETE USING (is_super_admin() OR workspace_id = ANY(SELECT my_workspace_ids()));
+    $q$;
+  END IF;
+END $$;
+
+
+-- ── 20. Registrar super admins (idempotente) ──────────────────────────
+INSERT INTO public.super_admins (user_id, email)
+SELECT au.id, au.email FROM auth.users au
+WHERE au.email IN (
+  'pmo3@coperva.com',
+  'otellez@coperva.com',
+  'automatizacion.ia@coperva.com',
+  'ricardo.avalos@optimasystems.ai'
+)
+ON CONFLICT (user_id) DO NOTHING;
+
+
 -- ── VERIFICACIÓN ──────────────────────────────────────────────────────
 
 -- Super admins registrados:

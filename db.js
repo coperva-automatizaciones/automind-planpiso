@@ -781,6 +781,10 @@
         }
         return [];
       })(),
+      // Documentos de cumplimiento — Lavado de dinero + Conformación (E5)
+      docLavadoDineroTipo: row.doc_lavado_dinero_tipo || "fisica",
+      docLavadoDinero:     row.doc_lavado_dinero_key  ? { name: row.doc_lavado_dinero_nombre  || "", storageKey: row.doc_lavado_dinero_key  } : null,
+      docConformacion:     row.doc_conformacion_key   ? { name: row.doc_conformacion_nombre   || "", storageKey: row.doc_conformacion_key   } : null,
       // Documentos de crédito (E6)
       docCredCarta:     row.doc_cred_carta_key      ? { name: row.doc_cred_carta_nombre      || "", storageKey: row.doc_cred_carta_key      } : null,
       docCredSolicitud: row.doc_cred_solicitud_key   ? { name: row.doc_cred_solicitud_nombre  || "", storageKey: row.doc_cred_solicitud_key   } : null,
@@ -918,6 +922,12 @@
         : null,
       doc_comprobante_key:     null,
       doc_comprobante_nombre:  null,
+      // Documentos de cumplimiento — Lavado de dinero + Conformación (E5)
+      doc_lavado_dinero_tipo:    c.docLavadoDineroTipo || "fisica",
+      doc_lavado_dinero_key:     c.docLavadoDinero    ? (c.docLavadoDinero.storageKey   || null) : null,
+      doc_lavado_dinero_nombre:  c.docLavadoDinero    ? (c.docLavadoDinero.name         || null) : null,
+      doc_conformacion_key:      c.docConformacion    ? (c.docConformacion.storageKey   || null) : null,
+      doc_conformacion_nombre:   c.docConformacion    ? (c.docConformacion.name         || null) : null,
       // Documentos de crédito (E6)
       doc_cred_carta_key:         c.docCredCarta    ? (c.docCredCarta.storageKey    || null) : null,
       doc_cred_carta_nombre:      c.docCredCarta    ? (c.docCredCarta.name          || null) : null,

@@ -24,26 +24,27 @@ WHERE workspace_id = 'f8dcb89c-34c4-4ddd-8ab9-89009b79fab6'
    OR agency_id    = 'f8dcb89c-34c4-4ddd-8ab9-89009b79fab6'
 ORDER BY rol, nombre;
 
--- ── 3. FIX: insertar reglas por defecto en workspaces sin reglas ──
--- Activa alertas en: comprometido, vencer, intereses
--- Notifica a: vendedor + gerente + director
-INSERT INTO alert_rules (workspace_id, semaforo, notify_vendedor, notify_gerente, notify_director, activa)
+-- ── 3. FIX: insertar/actualizar reglas — todo ON para todos los workspaces ──
+INSERT INTO alert_rules (
+  workspace_id, semaforo,
+  activa, notify_vendedor, notify_gerente, notify_director,
+  telegram_enabled, wa_activa
+)
 SELECT
-  w.id,
-  s.semaforo,
-  s.vendedor,
-  s.gerente,
-  s.director,
-  s.activa
+  w.id, s.semaforo,
+  true, true, true, true, true, true
 FROM workspaces w
 CROSS JOIN (VALUES
-  ('saludable',    false, false, false, false),
-  ('rotacion',     false, false, false, true),
-  ('comprometido', true,  true,  true,  true),
-  ('vencer',       true,  true,  true,  true),
-  ('intereses',    true,  true,  true,  true)
-) AS s(semaforo, vendedor, gerente, director, activa)
-ON CONFLICT (workspace_id, semaforo) DO NOTHING;
+  ('saludable'), ('rotacion'), ('comprometido'), ('vencer'), ('intereses')
+) AS s(semaforo)
+ON CONFLICT (workspace_id, semaforo)
+DO UPDATE SET
+  activa           = true,
+  notify_vendedor  = true,
+  notify_gerente   = true,
+  notify_director  = true,
+  telegram_enabled = true,
+  wa_activa        = true;
 
 -- ── 4. Verificar resultado ─────────────────────────────────────────
 SELECT
