@@ -353,9 +353,16 @@ function TabTelegram({ usuarioActual, workspaceId, rules, onUpdateTg, saving }) 
         }),
       });
       const json = await res.json();
-      setTestTg(json.ok || json.result?.ok ? "ok" : "error");
-    } catch { setTestTg("error"); }
-    setTimeout(() => setTestTg(null), 4000);
+      if (json.ok || json.result?.ok) {
+        setTestTg("ok");
+      } else {
+        const detalle = json.error || json.result?.description || "Respuesta inesperada";
+        setTestTg({ error: detalle });
+      }
+    } catch(e) {
+      setTestTg({ error: e.message || "Error de red" });
+    }
+    setTimeout(() => setTestTg(null), 7000);
   }
 
   const isLinked = tgStatus && tgStatus !== "loading" && tgStatus !== "not_linked";
@@ -534,8 +541,12 @@ function TabTelegram({ usuarioActual, workspaceId, rules, onUpdateTg, saving }) 
               : null}
             {testTg === "loading" ? " Enviando…" : "Enviar mensaje de prueba"}
           </button>
-          {testTg === "ok"    && <span className="fb-ok" style={{ width:"100%" }}>✓ Mensaje enviado</span>}
-          {testTg === "error" && <span className="fb-err" style={{ width:"100%" }}>Error al enviar. Verifica el chat_id y TELEGRAM_BOT_TOKEN.</span>}
+          {testTg === "ok"    && <span className="fb-ok" style={{ width:"100%" }}>✓ Mensaje enviado correctamente</span>}
+          {testTg && testTg.error && (
+            <span className="fb-err" style={{ width:"100%" }}>
+              ✗ {testTg.error}
+            </span>
+          )}
         </div>
       </div>
 
