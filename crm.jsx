@@ -3324,7 +3324,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="id"
                   value={form.docId || null}
                   onChange={v => set("docId", v)}
-                  readOnly={esVendedor}
+                  readOnly={false}
                   onExtract={campos => aplicarCampos(campos, "id")}
                   nombreReferencia={form.nombre || ""}
                 />
@@ -3336,7 +3336,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="licencia"
                   value={form.docLicencia || null}
                   onChange={v => set("docLicencia", v)}
-                  readOnly={esVendedor}
+                  readOnly={false}
                   onExtract={campos => aplicarCampos(campos, "licencia")}
                   nombreReferencia={form.nombre || ""}
                 />
@@ -3348,7 +3348,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="domicilio"
                   value={form.docDomicilio || null}
                   onChange={v => set("docDomicilio", v)}
-                  readOnly={esVendedor}
+                  readOnly={false}
                   onExtract={campos => aplicarCampos(campos, "domicilio")}
                   nombreReferencia={form.nombre || ""}
                 />
@@ -3360,7 +3360,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   docType="rfc"
                   value={form.docRfc || null}
                   onChange={v => set("docRfc", v)}
-                  readOnly={esVendedor}
+                  readOnly={false}
                   onExtract={campos => aplicarCampos(campos, "rfc")}
                   nombreReferencia={form.nombre || ""}
                 />
