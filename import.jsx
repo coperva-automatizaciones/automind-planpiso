@@ -19,6 +19,7 @@ const CAMPOS_DESTINO = [
   { key: "diasGraciaExtra",  label: "Días Gracia Extra",  tipo: "num",    req: false, aliases: ["dias_gracia_extra","gracia_extra","diasgraciaextra","gracia_adicional"] },
   { key: "pctInteres",    label: "% Interés Anual",        tipo: "pct",    req: true,  aliases: ["pct_interes","porcentaje_interes","tasa","tasa_anual","interes","pctinteres","tasa_interes"] },
   { key: "observaciones", label: "Observaciones",          tipo: "text",   req: false, aliases: ["observaciones","notas","comentarios","obs","nota"] },
+  { key: "danado",        label: "Autodañado",             tipo: "bool",   req: false, aliases: ["autodanado","autodañado","danado","dañado","daño","dano","averia","averiado"] },
 ];
 
 const CAMPOS_MAP = Object.fromEntries(CAMPOS_DESTINO.map(c => [c.key, c]));
@@ -44,6 +45,7 @@ function descargarPlantilla() {
     "Días Gracia Extra":  0,
     "% Interés Anual *":  18,
     "Observaciones":      "",
+    "Autodañado":         "",
   };
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet([ejemplo], { header: headers });
@@ -207,6 +209,7 @@ function aplicarMapeo(rows, mapeo) {
       diasGraciaExtra: graciaExtra,
       pctInteres: tasa,
       observaciones: get("observaciones") || "",
+      danado: /da[nñ]ado/i.test(String(get("danado") || "")),
       // computed
       diasEnPiso, diasGraciaTotal, diasConInteres, diasLibresRestantes,
       diasVencidos: diasConInteres, interesDiario, pctPlanConsumido,

@@ -606,6 +606,7 @@
       vendedor_ids:     Array.isArray(v.vendedorIds) ? v.vendedorIds.filter(Boolean) : (v.vendedorId ? [v.vendedorId] : []),
       estado_venta:     v.estadoVenta      || 'DISPONIBLE',
       fecha_venta:      toISO(v.fechaVenta) || null,
+      danado:           v.danado === true,
       // Persistir el semáforo actual para que la detección de cambios
       // (saveVehicle → triggerSemAlert) funcione y no se re-dispare en cada guardado
       semaforo_snapshot: v.semaforo        || null,
@@ -644,6 +645,7 @@
       vendedorId:      (Array.isArray(row.vendedor_ids) && row.vendedor_ids[0]) || row.vendedor_id || null,
       estadoVenta:     row.estado_venta     || 'DISPONIBLE',
       fechaVenta:      parseDate(row.fecha_venta),
+      danado:          row.danado === true,
     };
   }
 

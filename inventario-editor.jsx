@@ -335,6 +335,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
       montoFinanciado:0, diasGraciaBase:30, diasGraciaExtra:0,
       pctInteres:0.14,
       observaciones:"",
+      danado: false,
       vendedorIds: todosVendedores, vendedorId: todosVendedores[0] || null, fotoUrl:null,
     });
     const nextRows = [newRow, ...rows];
@@ -531,6 +532,23 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
                   <textarea className="ef-input ef-textarea ef-span2" value={form.observaciones || ""}
                     onChange={e => set("observaciones", e.target.value)} rows={2} />
                 </FormField>
+                {!esVendedor && (
+                  <FormField label="Estado físico" style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 10, cursor: "pointer",
+                      padding: "8px 14px", borderRadius: 8,
+                      border: "2px solid " + (form.danado ? "#e07a20" : "var(--line)"),
+                      background: form.danado ? "#fdf0e6" : "var(--card)",
+                      transition: "all .15s" }}>
+                      <input type="checkbox" checked={!!form.danado}
+                        onChange={e => set("danado", e.target.checked)}
+                        style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#e07a20" }} />
+                      <span style={{ fontSize: 13, fontWeight: 700,
+                        color: form.danado ? "#e07a20" : "var(--muted)" }}>
+                        {form.danado ? "🔧 Vehículo dañado" : "Sin daños reportados"}
+                      </span>
+                    </label>
+                  </FormField>
+                )}
               </div>
             </div>
 
