@@ -6003,7 +6003,7 @@ function CRMClientes({ rows, kpis, usuarios, usuarioActual }) {
       {/* Encabezado */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:20 }}>
         <div>
-          <h1 style={{ margin:"0 0 3px", fontSize:22, fontWeight:800 }}>CRM de Clientes</h1>
+          <h1 style={{ margin:"0 0 3px", fontSize:22, fontWeight:800 }}>Asistente del vendedor</h1>
           <p style={{ margin:0, color:"var(--muted)", fontSize:14 }}>
             Pipeline de ventas · <span style={{ color:"#8b5cf6", fontWeight:600 }}>Datos de ejemplo</span>
           </p>

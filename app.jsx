@@ -786,7 +786,7 @@ function App() {
     : view === "importar"      ? "Plan Piso · Importar inventario"
     : view === "config"        ? "Admin · Configuración"
     : view === "ventas"        ? "Dashboard de Ventas"
-    : view === "crm"           ? "Ventas · CRM de Clientes"
+    : view === "crm"           ? "Ventas · Asistente del vendedor"
     : "Plan Piso · Dashboard — Semáforo";
 
   // Cerrar sidebar mobile al cambiar de vista
