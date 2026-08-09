@@ -1,0 +1,26 @@
+-- ⚠️ OBSOLETO — NO EJECUTAR
+--
+-- Este archivo fue un primer intento de arreglo, escrito antes de conocer la
+-- causa real. Su diagnóstico era incompleto: suponía que bastaba reactivar RLS,
+-- sin saber que eso rompería la creación de workspaces por parte de un agency
+-- owner.
+--
+-- Reemplazado por migraciones versionadas, probadas contra una base
+-- reconstruida desde cero:
+--
+--   supabase/migrations/20260808204401_fix_rls_workspaces.sql
+--     Reactiva RLS y corrige la causa raíz: la política de SELECT consultaba
+--     la propia tabla workspaces a través de my_workspace_ids(), que es STABLE
+--     y no ve la fila recién insertada. Eso hacía fallar los
+--     INSERT ... RETURNING que usa db.js → createWorkspace().
+--
+--   supabase/migrations/20260808204404_fix_hallazgos_advisor.sql
+--     Cierra el INSERT de alert_log y fija search_path en las funciones
+--     SECURITY DEFINER.
+--
+-- Aplicar con:  npx supabase db push
+-- Probar antes en local con:  npx supabase db reset
+--
+-- Se conserva el archivo, vacío de efecto, para que quien llegue por una
+-- referencia antigua encuentre a dónde ir. En v2 no debe existir nada
+-- equivalente: el esquema vive solo en migraciones.
