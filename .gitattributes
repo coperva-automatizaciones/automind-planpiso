@@ -1,0 +1,47 @@
+# ── Finales de línea ───────────────────────────────────────────────────────
+# El repositorio guarda LF; en Windows se materializa según config local.
+# Evita que un editor convierta un archivo entero a CRLF y genere un diff
+# de miles de líneas por un cambio de tres.
+* text=auto eol=lf
+
+# Explícito para lo que hay en el proyecto
+*.html   text eol=lf
+*.js     text eol=lf
+*.jsx    text eol=lf
+*.mjs    text eol=lf
+*.ts     text eol=lf
+*.json   text eol=lf
+*.sql    text eol=lf
+*.md     text eol=lf
+*.toml   text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+
+# Scripts que SÍ necesitan CRLF para ejecutarse en Windows
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+*.ps1    text eol=crlf
+
+# Scripts que SÍ necesitan LF aunque se editen en Windows
+*.sh     text eol=lf
+
+# ── Archivos generados ─────────────────────────────────────────────────────
+# La línea base la produce `supabase db pull`, no se edita a mano.
+# Se colapsa en los diffs de GitHub y se excluye de las estadísticas.
+supabase/migrations/*_remote_schema.sql linguist-generated=true
+
+# ── Binarios ───────────────────────────────────────────────────────────────
+# Hoy no hay ninguno versionado; queda declarado para cuando los haya
+# (fotos de unidades, plantillas de Excel, avisos de privacidad).
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.pdf    binary
+*.xlsx   binary
+*.docx   binary
+*.woff   binary
+*.woff2  binary
+*.zip    binary

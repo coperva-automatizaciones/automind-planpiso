@@ -1,0 +1,26 @@
+# ── Supabase CLI ─────────────────────────────────────────────
+# Estado local del CLI: refs del proyecto vinculado, versiones, caché.
+supabase/.temp/
+supabase/.branches/
+
+# ── Secretos ─────────────────────────────────────────────────
+# Las Edge Functions leen sus secretos de aquí en local.
+# NUNCA commitear: contienen SERVICE_ROLE_KEY, tokens de Brevo/Telegram/OpenAI.
+.env
+.env.*
+!.env.example
+supabase/functions/.env
+
+# ── Node ─────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+.npm/
+
+# ── Sistema operativo ────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ── Nota ─────────────────────────────────────────────────────
+# config.js SÍ se versiona: contiene la anon key, que es pública por diseño.
+# En v2 esto cambia — las credenciales pasan a variables de entorno.
