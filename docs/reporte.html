@@ -1,0 +1,1277 @@
+<title>Automind · Plan Piso — Análisis del MVP y especificación para v2</title>
+
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     Tokens — paleta derivada del design system del producto
+     (.impeccable/design.json). El semáforo es la escala semántica;
+     el marino es la voz del documento, distinta del azul de la app.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --bg:        #f1f3f9;
+    --card:      #ffffff;
+    --card-2:    #f7f8fc;
+    --ink:       #161b2e;
+    --ink-2:     #3c4257;
+    --muted:     #626b82;
+    --line:      #e0e4ef;
+    --line-2:    #eceff7;
+    --rail:      #1b2a57;
+    --rail-ink:  #c3cce4;
+    --rail-hi:   #ffffff;
+    --link:      #2451c9;
+
+    --sem-1:     #1f9d57;
+    --sem-2:     #d99613;
+    --sem-3:     #e07a20;
+    --sem-4:     #e0492f;
+    --sem-5:     #2d3142;
+    --sem-1-bg:  #e7f5ed;
+    --sem-2-bg:  #fbf2da;
+    --sem-3-bg:  #fdf0e6;
+    --sem-4-bg:  #fcebe7;
+    --sem-5-bg:  #eaebef;
+
+    --ok:        #1f9d57;
+    --ok-bg:     #e7f5ed;
+
+    --shadow:    0 1px 2px rgba(20,30,60,.04), 0 8px 24px -18px rgba(20,30,60,.35);
+
+    --sans: "Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+    --mono: "Cascadia Code","Cascadia Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:       #101219;
+      --card:     #181c27;
+      --card-2:   #1e2330;
+      --ink:      #e8ebf3;
+      --ink-2:    #c2c8d8;
+      --muted:    #8d95a9;
+      --line:     #2a3040;
+      --line-2:   #232836;
+      --rail:     #131826;
+      --rail-ink: #98a3c0;
+      --rail-hi:  #ffffff;
+      --link:     #7ba4f7;
+
+      --sem-1:    #46b878;
+      --sem-2:    #e6b34d;
+      --sem-3:    #ea9a55;
+      --sem-4:    #ea7461;
+      --sem-5:    #9aa0b3;
+      --sem-1-bg: #10281c;
+      --sem-2-bg: #2b2312;
+      --sem-3-bg: #2c1e12;
+      --sem-4-bg: #2e1a17;
+      --sem-5-bg: #232733;
+
+      --ok:       #46b878;
+      --ok-bg:    #10281c;
+
+      --shadow:   0 1px 2px rgba(0,0,0,.3), 0 8px 24px -18px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg:       #101219;
+    --card:     #181c27;
+    --card-2:   #1e2330;
+    --ink:      #e8ebf3;
+    --ink-2:    #c2c8d8;
+    --muted:    #8d95a9;
+    --line:     #2a3040;
+    --line-2:   #232836;
+    --rail:     #131826;
+    --rail-ink: #98a3c0;
+    --rail-hi:  #ffffff;
+    --link:     #7ba4f7;
+
+    --sem-1:    #46b878;
+    --sem-2:    #e6b34d;
+    --sem-3:    #ea9a55;
+    --sem-4:    #ea7461;
+    --sem-5:    #9aa0b3;
+    --sem-1-bg: #10281c;
+    --sem-2-bg: #2b2312;
+    --sem-3-bg: #2c1e12;
+    --sem-4-bg: #2e1a17;
+    --sem-5-bg: #232733;
+
+    --ok:       #46b878;
+    --ok-bg:    #10281c;
+
+    --shadow:   0 1px 2px rgba(0,0,0,.3), 0 8px 24px -18px rgba(0,0,0,.8);
+  }
+
+  /* ── Base ───────────────────────────────────────────────── */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; border-radius: 3px; }
+
+  code, .mono { font-family: var(--mono); font-size: .88em; }
+  code:not(pre code) {
+    background: var(--card-2); border: 1px solid var(--line-2);
+    padding: .08em .34em; border-radius: 4px; color: var(--ink-2);
+  }
+
+  /* ── Shell ──────────────────────────────────────────────── */
+  .shell { display: grid; grid-template-columns: 246px minmax(0,1fr); min-height: 100vh; }
+
+  .rail {
+    background: var(--rail); color: var(--rail-ink);
+    padding: 30px 22px 40px; position: sticky; top: 0; height: 100vh;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 26px;
+  }
+  .rail-brand { display: flex; align-items: center; gap: 9px; color: var(--rail-hi); }
+  .rail-brand svg { flex: none; }
+  .rail-brand b { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  .rail-sub {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+    color: var(--rail-ink); opacity: .75; margin-top: 3px; display: block;
+  }
+  .rail-nav { display: flex; flex-direction: column; gap: 1px; }
+  .rail-sec {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
+    text-transform: uppercase; opacity: .5; margin: 14px 0 7px; color: var(--rail-hi);
+  }
+  .rail-nav a {
+    display: flex; gap: 10px; align-items: baseline;
+    color: var(--rail-ink); text-decoration: none;
+    padding: 7px 10px; border-radius: 7px; font-size: 13.5px; line-height: 1.35;
+    transition: background .15s, color .15s;
+  }
+  .rail-nav a:hover { background: rgba(255,255,255,.07); color: var(--rail-hi); }
+  .rail-nav a .n { font-family: var(--mono); font-size: 10.5px; opacity: .6; flex: none; }
+  .rail-foot {
+    margin-top: auto; font-size: 11.5px; line-height: 1.55;
+    color: var(--rail-ink); opacity: .6; border-top: 1px solid rgba(255,255,255,.1);
+    padding-top: 16px;
+  }
+
+  .main { padding: 0 0 100px; min-width: 0; }
+  .wrap { max-width: 860px; padding: 0 40px; margin: 0 auto; }
+
+  /* ── Encabezado ─────────────────────────────────────────── */
+  .head { padding: 64px 0 40px; border-bottom: 1px solid var(--line); margin-bottom: 44px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.2vw, 42px); font-weight: 800; letter-spacing: -.025em;
+    line-height: 1.08; margin: 0 0 18px; text-wrap: balance; max-width: 18ch;
+  }
+  .lede { font-size: 18px; line-height: 1.6; color: var(--ink-2); max-width: 60ch; margin: 0; }
+
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 26px; margin-top: 28px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+  }
+  .meta span b { color: var(--ink-2); font-weight: 600; }
+
+  /* ── Tipografía de sección ──────────────────────────────── */
+  section { scroll-margin-top: 24px; padding-top: 8px; }
+  h2 {
+    font-size: 25px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2;
+    margin: 60px 0 6px; text-wrap: balance;
+  }
+  h2 .h2n {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .1em;
+    color: var(--muted); display: block; margin-bottom: 9px; font-weight: 500;
+  }
+  h3 {
+    font-size: 17px; font-weight: 700; letter-spacing: -.01em;
+    margin: 36px 0 8px; text-wrap: balance;
+  }
+  h4 { font-size: 14.5px; font-weight: 700; margin: 24px 0 6px; }
+  p { margin: 0 0 14px; max-width: var(--measure); }
+  .sec-sub { color: var(--muted); font-size: 15px; margin: 0 0 22px; max-width: var(--measure); }
+  ul, ol { max-width: var(--measure); padding-left: 20px; margin: 0 0 16px; }
+  li { margin-bottom: 6px; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 52px 0; }
+
+  /* ── Tarjetas de hallazgo ───────────────────────────────── */
+  .findings { display: flex; flex-direction: column; gap: 12px; margin: 26px 0 8px; }
+  .f {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 3px solid var(--sev, var(--muted));
+    border-radius: 9px; padding: 16px 20px; box-shadow: var(--shadow);
+  }
+  .f-top { display: flex; align-items: baseline; gap: 11px; margin-bottom: 5px; flex-wrap: wrap; }
+  .f-n {
+    font-family: var(--mono); font-size: 11px; color: var(--sev, var(--muted));
+    font-weight: 700; flex: none;
+  }
+  .f-t { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+  .f p { font-size: 14.5px; color: var(--ink-2); margin: 0; max-width: none; }
+  .f-sev {
+    margin-left: auto; font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 20px;
+    background: var(--sev-bg, var(--card-2)); color: var(--sev, var(--muted)); flex: none; font-weight: 700;
+  }
+
+  .sev-critico { --sev: var(--sem-5); --sev-bg: var(--sem-5-bg); }
+  .sev-alto    { --sev: var(--sem-4); --sev-bg: var(--sem-4-bg); }
+  .sev-medio   { --sev: var(--sem-3); --sev-bg: var(--sem-3-bg); }
+  .sev-bueno   { --sev: var(--ok);    --sev-bg: var(--ok-bg); }
+  .sev-info    { --sev: var(--link);  --sev-bg: var(--card-2); }
+
+  /* ── Panel / callout ────────────────────────────────────── */
+  .panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 11px; padding: 22px 24px; margin: 26px 0; box-shadow: var(--shadow);
+  }
+  .panel > :last-child { margin-bottom: 0; }
+  .panel-lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 12px;
+  }
+  .note {
+    border-left: 3px solid var(--sem-2); background: var(--sem-2-bg);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 22px 0;
+    font-size: 14.5px; color: var(--ink-2);
+  }
+  .note > :last-child { margin-bottom: 0; }
+  .note b { color: var(--ink); }
+
+  /* ── Métricas ───────────────────────────────────────────── */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden; margin: 28px 0;
+  }
+  .stat { background: var(--card); padding: 15px 17px; }
+  .stat .v {
+    font-family: var(--mono); font-size: 22px; font-weight: 700; letter-spacing: -.02em;
+    color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.15;
+  }
+  .stat .k {
+    font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.35;
+  }
+
+  /* ── Tablas ─────────────────────────────────────────────── */
+  .tw { overflow-x: auto; margin: 22px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 15px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; background: var(--card-2); white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.c, th.c { text-align: center; }
+
+  /* ── Figuras ────────────────────────────────────────────── */
+  figure { margin: 32px 0; }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; color: var(--ink-2); }
+  .figbox {
+    background: var(--card); border: 1px solid var(--line); border-radius: 11px;
+    padding: 24px 22px 18px; overflow-x: auto; box-shadow: var(--shadow);
+  }
+  figcaption {
+    font-size: 13px; color: var(--muted); margin-top: 13px; line-height: 1.55;
+    max-width: var(--measure);
+  }
+  figcaption b { color: var(--ink-2); }
+
+  /* ── Chips de semáforo ──────────────────────────────────── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 2px 7px;
+    border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+
+  /* ── Decisiones abiertas ────────────────────────────────── */
+  .dec {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+    padding: 18px 21px; margin-bottom: 12px; box-shadow: var(--shadow);
+  }
+  .dec-q { font-weight: 700; font-size: 15.5px; margin-bottom: 7px; letter-spacing: -.01em; }
+  .dec p { font-size: 14.5px; color: var(--ink-2); margin: 0 0 10px; max-width: none; }
+  .dec p:last-child { margin-bottom: 0; }
+  .dec-rec {
+    font-size: 14px; border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 11px;
+    color: var(--ink-2);
+  }
+  .dec-rec b { color: var(--ink); }
+
+  /* ── Listas de checklist ────────────────────────────────── */
+  .cl { list-style: none; padding: 0; max-width: var(--measure); }
+  .cl li {
+    padding-left: 25px; position: relative; margin-bottom: 7px; font-size: 14.5px; color: var(--ink-2);
+  }
+  .cl li::before {
+    content: ""; position: absolute; left: 0; top: .48em;
+    width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid var(--line);
+    background: var(--card);
+  }
+  .cl.keep li::before { border-color: var(--ok); background: var(--ok-bg); }
+  .cl.drop li { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+  .cl.drop li::before { border-color: var(--line); background: var(--line-2); }
+
+  /* ── Pie ────────────────────────────────────────────────── */
+  .foot {
+    margin-top: 70px; padding-top: 26px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--muted); line-height: 1.65;
+  }
+  .foot b { color: var(--ink-2); }
+
+  /* ── Responsive ─────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; }
+    .rail {
+      position: static; height: auto; padding: 22px 24px 26px;
+      flex-direction: row; flex-wrap: wrap; align-items: center; gap: 14px 28px;
+    }
+    .rail-nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+    .rail-sec, .rail-foot { display: none; }
+    .wrap { padding: 0 22px; }
+    .head { padding: 40px 0 32px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <nav class="rail">
+    <div>
+      <div class="rail-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+             stroke-linecap="round" stroke-linejoin="round" width="22" height="22" aria-hidden="true">
+          <path d="M5.5 13.5L8 9h8l2.5 4.5"/><path d="M2 13.5h20v2.5H2z"/>
+          <circle cx="7.5" cy="17.8" r="1.7"/><circle cx="16.5" cy="17.8" r="1.7"/>
+        </svg>
+        <b>Automind · Plan Piso</b>
+      </div>
+      <span class="rail-sub">ANÁLISIS DEL MVP · AGO 2026</span>
+    </div>
+
+    <div class="rail-nav">
+      <div class="rail-sec">Resumen</div>
+      <a href="#resumen"><span class="n">00</span><span>Situación y hallazgos</span></a>
+      <a href="#decisiones"><span class="n">→</span><span>Decisiones pendientes</span></a>
+
+      <div class="rail-sec">Reportes</div>
+      <a href="#dominio"><span class="n">01</span><span>Dominio de negocio</span></a>
+      <a href="#features"><span class="n">02</span><span>Features del MVP</span></a>
+      <a href="#lecciones"><span class="n">03</span><span>Lecciones</span></a>
+      <a href="#v2"><span class="n">04</span><span>Requisitos para v2</span></a>
+    </div>
+
+    <div class="rail-foot">
+      Verificado contra el código y contra producción, en solo lectura.<br><br>
+      Detalle completo en <code>docs/</code>.
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="wrap">
+
+      <!-- ══════════════ ENCABEZADO ══════════════ -->
+      <header class="head">
+        <div class="eyebrow">Análisis del MVP · Especificación para la reconstrucción</div>
+        <h1>Lo que el MVP sabe, y lo que no hay que repetir</h1>
+        <p class="lede">
+          Un producto identificable, con reglas de negocio validadas, construido sin perfil técnico
+          en dos meses y medio. Este es el conocimiento que vale la pena rescatar — y los cinco
+          fallos estructurales que comparten una misma raíz.
+        </p>
+        <div class="meta">
+          <span><b>24 368</b> líneas</span>
+          <span><b>324</b> commits</span>
+          <span><b>2.5</b> meses</span>
+          <span><b>0</b> pruebas</span>
+          <span><b>0</b> clientes activos</span>
+        </div>
+      </header>
+
+      <!-- ══════════════ 00 · RESUMEN ══════════════ -->
+      <section id="resumen">
+        <h2><span class="h2n">00 — SITUACIÓN</span>El MVP cumplió su función. No es la base de v2.</h2>
+        <p class="sec-sub">
+          Sirvió para descubrir si el producto tenía sentido, y lo demostró. Pero acumuló cinco fallos
+          estructurales con una raíz común: <b>no existía ningún mecanismo para saber si algo estaba mal</b>.
+          Sin pruebas, sin revisión de código, sin entornos separados y sin control de versiones sobre la
+          base de datos, cada error solo se descubría cuando alguien lo veía en pantalla.
+        </p>
+
+        <h3>Qué es el producto, en una frase</h3>
+        <p>
+          Una agencia automotriz no compra los autos de su piso de exhibición: los financia. El banco
+          concede unos días de gracia sin intereses; pasados esos días, <b>cada auto parado cuesta dinero
+          todos los días</b>, y ese costo sale del margen de la venta. El producto convierte ese plazo
+          invisible en una señal de color y avisa a quien debe actuar. Su promesa cabe en una línea:
+          <em>ninguna unidad empieza a generar intereses en silencio</em>.
+        </p>
+
+        <h3>Los cinco hallazgos que más pesan</h3>
+        <div class="findings">
+
+          <div class="f sev-critico">
+            <div class="f-top">
+              <span class="f-n">01</span>
+              <span class="f-t">La regla central está escrita 7 veces y las copias divergieron</span>
+              <span class="f-sev">Crítico</span>
+            </div>
+            <p>
+              El semáforo —la razón de existir del producto— está reimplementado en siete lugares
+              independientes. Cuatro dicen ⚫ donde dos dicen 🟢. Efecto observable: la misma unidad
+              se ve verde al iniciar sesión y negra al recargar la página.
+            </p>
+          </div>
+
+          <div class="f sev-critico">
+            <div class="f-top">
+              <span class="f-n">02</span>
+              <span class="f-t">La tabla raíz del multi-tenant tiene la seguridad desactivada</span>
+              <span class="f-sev">Confirmado</span>
+            </div>
+            <p>
+              Con solo la clave pública, sin autenticarse, se leen los cuatro workspaces reales.
+              La causa está confirmada en el panel de Supabase: <b>Row Level Security está desactivada
+              en <code>workspaces</code></b>. Las políticas correctas existen en el repositorio pero
+              están inertes — sin RLS, la base no las evalúa y solo aplican los permisos por defecto,
+              que conceden todo a los roles anónimo y autenticado.
+            </p>
+            <p style="margin-top:9px;">
+              <b>Descartado lo peor:</b> el Security Advisor confirma que solo <code>workspaces</code>
+              está en esa situación. <code>users</code> y <code>clientes</code> tienen RLS activa —
+              <b>no hay datos personales expuestos</b>.
+            </p>
+          </div>
+
+          <div class="f sev-alto">
+            <div class="f-top">
+              <span class="f-n">02b</span>
+              <span class="f-t">Un arreglo escrito, commiteado, y perdido sin que nadie lo notara</span>
+              <span class="f-sev">Ilustrativo</span>
+            </div>
+            <p>
+              La bitácora de alertas acepta inserciones de cualquier usuario autenticado: la tabla
+              que sirve como <em>evidencia de que sí se notificó</em> es falsificable. Lo revelador es
+              su historia — el arreglo <b>ya estaba escrito y commiteado</b> en el repositorio, con el
+              comentario correcto explicando el riesgo, y nunca llegó a producción. Alguien detectó
+              el problema, lo entendió, lo corrigió… y el arreglo se evaporó sin dejar rastro
+              detectable.
+            </p>
+          </div>
+
+          <div class="f sev-alto">
+            <div class="f-top">
+              <span class="f-n">03</span>
+              <span class="f-t">El estado de la base de datos no es reproducible</span>
+              <span class="f-sev">Alto</span>
+            </div>
+            <p>
+              ~90 archivos SQL sueltos en la raíz, con 98 <code>CREATE POLICY</code> contra
+              111 <code>DROP POLICY</code>. Siete archivos son intentos sucesivos del mismo problema.
+              No hay registro de cuáles se aplicaron ni en qué orden.
+            </p>
+          </div>
+
+          <div class="f sev-bueno">
+            <div class="f-top">
+              <span class="f-n">04</span>
+              <span class="f-t">No hay que migrar datos — estás libre</span>
+              <span class="f-sev">Oportunidad</span>
+            </div>
+            <p>
+              Sin clientes activos, los cuatro workspaces son configuraciones de demostración.
+              Puedes elegir la arquitectura <b>correcta</b> en lugar de la compatible, y recrear los datos
+              semilla versionados en el repositorio.
+            </p>
+          </div>
+
+          <div class="f sev-info">
+            <div class="f-top">
+              <span class="f-n">05</span>
+              <span class="f-t">Cinco activos merecen rescate, y ninguno es código</span>
+              <span class="f-sev">Rescatar</span>
+            </div>
+            <p>
+              Los prompts de extracción de documentos (195 líneas afinadas en 19 commits, con
+              aprendizaje real sobre INE, RFC y cotizaciones mexicanas), la tabla de sinónimos de
+              columnas de Excel, las plantillas de mensajes, el sistema de diseño y la especificación
+              del semáforo. Reescribirlos desde cero costaría semanas.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ══════════════ DECISIONES ══════════════ -->
+      <section id="decisiones">
+        <h2><span class="h2n">DECISIONES</span>Tres preguntas que anteceden al stack</h2>
+        <p class="sec-sub">
+          Ninguna es técnica, y las tres cambian la arquitectura. Se plantean, no se resuelven:
+          son decisiones de producto.
+        </p>
+
+        <div class="dec">
+          <div class="dec-q">¿El CRM es parte de este producto?</div>
+          <p>
+            El módulo de clientes es <b>el 25 % del código</b>, tiene su propio ciclo de vida, sus propios
+            usuarios y su propia carga regulatoria. Toca al plan piso en un solo punto: la selección de
+            unidad al cotizar. No aparece en ninguna documentación de producto.
+          </p>
+          <div class="dec-rec">
+            <b>Lectura:</b> el acoplamiento real es mínimo. Aunque decidas desplegarlos juntos,
+            construye la frontera desde el día uno — es barata ahora y muy cara después. El MVP es la prueba.
+          </div>
+        </div>
+
+        <div class="dec">
+          <div class="dec-q">¿Se justifica la jerarquía agencia → sucursal?</div>
+          <p>
+            En producción hay <b>4 agencias con exactamente un workspace cada una</b>. La jerarquía de dos
+            niveles nunca se ejercitó con un caso real, y produjo una clase entera de bugs: la ambigüedad
+            <code>workspace_id || agency_id</code> está esparcida por toda la capa de datos.
+          </p>
+          <div class="dec-rec">
+            <b>Lectura:</b> si negocio no confirma un cliente con varias sucursales, un solo nivel de
+            tenant con agrupación opcional. Añadir el nivel superior después es una migración acotada.
+          </div>
+        </div>
+
+        <div class="dec">
+          <div class="dec-q">Unidad sin días de gracia: ¿🟢 o ⚫?</div>
+          <p>
+            Las dos respuestas están implementadas hoy. Detrás hay una distinción de negocio que el MVP
+            colapsa: <em>"no tiene plan piso"</em> y <em>"nadie capturó los días de gracia"</em> son
+            situaciones distintas que comparten el mismo <code>0</code>.
+          </p>
+          <div class="dec-rec">
+            <b>Lectura:</b> separarlas en el modelo. Con eso la regla se vuelve obvia en cada caso, y el
+            conflicto desaparece por diseño en vez de por convención.
+          </div>
+        </div>
+      </section>
+
+      <hr>
+
+      <!-- ══════════════ 01 · DOMINIO ══════════════ -->
+      <section id="dominio">
+        <h2><span class="h2n">REPORTE 01</span>Dominio de negocio</h2>
+        <p class="sec-sub">
+          La especificación del producto. Es el insumo directo de v2 y está escrita para sobrevivir
+          al código actual.
+        </p>
+
+        <h3>El semáforo: cinco estados sobre el plan consumido</h3>
+        <p>
+          El estado sale de una sola cifra — qué porcentaje del plan de gracia lleva consumido la unidad.
+          Los umbrales son <b>exclusivos</b>, y eso produce un comportamiento que conviene ver antes de
+          reimplementarlo.
+        </p>
+
+        <figure>
+          <div class="figbox">
+            <svg viewBox="0 0 760 172" role="img"
+                 aria-label="Escala de 0 a 110 por ciento de plan consumido dividida en cinco bandas: saludable hasta 61, rotación de 61 a 76, comprometido de 76 a 86, por vencer de 86 a 100, y en intereses por encima de 100. El día exacto del 100 por ciento todavía se clasifica como por vencer.">
+              <!-- bandas -->
+              <rect x="40"  y="44" width="256" height="30" fill="var(--sem-1)"/>
+              <rect x="296" y="44" width="80"  height="30" fill="var(--sem-2)"/>
+              <rect x="376" y="44" width="48"  height="30" fill="var(--sem-3)"/>
+              <rect x="424" y="44" width="72"  height="30" fill="var(--sem-4)"/>
+              <rect x="496" y="44" width="184" height="30" fill="var(--sem-5)"/>
+
+              <!-- etiquetas dentro de banda -->
+              <text x="168" y="64" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">Saludable</text>
+              <text x="336" y="64" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">Rotación</text>
+              <text x="400" y="64" font-size="11" font-weight="700" fill="#ffffff" text-anchor="middle">Compr.</text>
+              <text x="460" y="64" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">Vencer</text>
+              <text x="588" y="64" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">En intereses</text>
+
+              <!-- eje -->
+              <line x1="40" y1="86" x2="680" y2="86" stroke="currentColor" stroke-width="1" opacity=".3"/>
+              <g font-family="monospace" font-size="11" fill="currentColor" text-anchor="middle">
+                <line x1="40"  y1="86" x2="40"  y2="93" stroke="currentColor" opacity=".45"/>
+                <text x="40"  y="108">0%</text>
+                <line x1="296" y1="86" x2="296" y2="93" stroke="currentColor" opacity=".45"/>
+                <text x="296" y="108">61%</text>
+                <line x1="376" y1="86" x2="376" y2="93" stroke="currentColor" opacity=".45"/>
+                <text x="376" y="108">76%</text>
+                <line x1="424" y1="86" x2="424" y2="93" stroke="currentColor" opacity=".45"/>
+                <text x="424" y="108">86%</text>
+                <line x1="496" y1="86" x2="496" y2="93" stroke="currentColor" opacity=".45"/>
+                <text x="496" y="108">100%</text>
+              </g>
+
+              <!-- llamada al caso 100% -->
+              <path d="M496 132 L496 118" stroke="var(--sem-4)" stroke-width="1.5" fill="none"/>
+              <circle cx="496" cy="118" r="3" fill="var(--sem-4)"/>
+              <text x="504" y="140" font-size="12" fill="var(--sem-4)" font-weight="700">
+                Último día de gracia = todavía 🔴, no ⚫
+              </text>
+              <text x="504" y="156" font-size="11.5" fill="currentColor" opacity=".7">
+                ese día aún no genera interés
+              </text>
+
+              <!-- titulo eje -->
+              <text x="40" y="30" font-size="11" font-family="monospace" fill="currentColor" opacity=".65"
+                    letter-spacing="1.2">% DE PLAN DE GRACIA CONSUMIDO</text>
+            </svg>
+          </div>
+          <figcaption>
+            Los cinco estados sobre el eje del plan consumido. <b>El corte de ⚫ es <code>&gt; 100</code>,
+            no <code>&ge; 100</code></b>: en el día exacto en que se agota la gracia la unidad sigue
+            marcada como «por vencer», porque ese día todavía no cuesta dinero. Es el caso que más
+            fácilmente se pierde al reimplementar.
+          </figcaption>
+        </figure>
+
+        <h3>Las fórmulas</h3>
+        <div class="panel">
+          <div class="panel-lbl">Cálculo canónico — reporte 01 §3.2</div>
+          <div class="tw" style="margin:0;border:0;">
+            <table>
+              <tbody>
+                <tr><td class="mono" style="white-space:nowrap">diasEnPiso</td><td class="mono">max(0, round((hoy − fechaFactura) / 1 día) − 1)</td></tr>
+                <tr><td class="mono">graciaTotal</td><td class="mono">diasGraciaBase + diasGraciaExtra</td></tr>
+                <tr><td class="mono">diasVencidos</td><td class="mono">max(0, diasEnPiso − graciaTotal)</td></tr>
+                <tr><td class="mono">interesDiario</td><td class="mono">round2(montoFinanciado × tasa / 365)</td></tr>
+                <tr><td class="mono">interesAcum</td><td class="mono">round2(diasVencidos × interesDiario)</td></tr>
+                <tr><td class="mono">pctPlan</td><td class="mono">round(diasEnPiso / graciaTotal × 100)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="note">
+          <p>
+            <b>Dos decisiones a tomar antes de escribir el código.</b> El <code>−1</code> es correcto: el
+            día de la factura no cuenta como consumido. Pero <code>interesDiario</code> se redondea a
+            centavos <em>antes</em> de multiplicarse por los días vencidos, así que el error de redondeo
+            se multiplica — y cuando falta la fecha de factura, el sistema la <b>inventa</b>
+            (<code>hoy − 7 días</code>) en lugar de señalar el hueco.
+          </p>
+        </div>
+
+        <p>
+          El reporte 01 incluye <b>21 vectores de prueba</b> listos para convertirse en tu primera
+          test suite: umbrales, días de gracia extra, cálculo de interés y casos borde.
+        </p>
+
+        <h3>Quién se entera, y cómo</h3>
+        <figure>
+          <div class="figbox">
+            <svg viewBox="0 0 760 250" role="img"
+                 aria-label="Flujo de alertas: dos disparadores, el guardado manual y el cron diario, comparan el semáforo calculado contra el último estado notificado. Si cambió, se consultan las reglas del workspace y se resuelve la jerarquía vendedor, gerente y director para enviar por correo, Telegram y WhatsApp, dejando registro en la bitácora.">
+              <defs>
+                <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/>
+                </marker>
+                <marker id="ar-hi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--sem-4)"/>
+                </marker>
+              </defs>
+
+              <!-- disparadores -->
+              <rect x="8" y="34" width="132" height="40" rx="7" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/>
+              <text x="74" y="52" font-size="12" fill="currentColor" text-anchor="middle" font-weight="600">Guardar unidad</text>
+              <text x="74" y="66" font-size="10.5" fill="currentColor" text-anchor="middle" opacity=".65">edición manual</text>
+
+              <rect x="8" y="96" width="132" height="40" rx="7" fill="none" stroke="var(--sem-4)" stroke-width="1.6"/>
+              <text x="74" y="114" font-size="12" fill="var(--sem-4)" text-anchor="middle" font-weight="700">Cron diario</text>
+              <text x="74" y="128" font-size="10.5" fill="var(--sem-4)" text-anchor="middle" opacity=".85">paso del tiempo</text>
+
+              <line x1="140" y1="54" x2="196" y2="76" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)" opacity=".55"/>
+              <line x1="140" y1="116" x2="196" y2="94" stroke="var(--sem-4)" stroke-width="1.6" marker-end="url(#ar-hi)"/>
+
+              <!-- comparador -->
+              <rect x="200" y="60" width="146" height="50" rx="7" fill="var(--card-2)" stroke="currentColor" stroke-width="1.2" opacity=".9"/>
+              <text x="273" y="80" font-size="12" fill="currentColor" text-anchor="middle" font-weight="600">¿Cambió el estado?</text>
+              <text x="273" y="96" font-size="10" font-family="monospace" fill="currentColor" text-anchor="middle" opacity=".7">calculado vs snapshot</text>
+
+              <line x1="346" y1="85" x2="402" y2="85" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+              <text x="374" y="78" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">sí</text>
+
+              <!-- reglas -->
+              <rect x="406" y="60" width="132" height="50" rx="7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+              <text x="472" y="80" font-size="12" fill="currentColor" text-anchor="middle" font-weight="600">Reglas del</text>
+              <text x="472" y="95" font-size="12" fill="currentColor" text-anchor="middle" font-weight="600">workspace</text>
+
+              <!-- jerarquia -->
+              <line x1="472" y1="110" x2="472" y2="140" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+              <text x="482" y="130" font-size="10" fill="currentColor" opacity=".7">resuelve jerarquía</text>
+
+              <rect x="366" y="144" width="212" height="38" rx="7" fill="var(--card-2)" stroke="currentColor" stroke-width="1.2"/>
+              <text x="472" y="167" font-size="11.5" fill="currentColor" text-anchor="middle">
+                vendedor → gerente → director
+              </text>
+
+              <!-- canales -->
+              <line x1="578" y1="163" x2="620" y2="163" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+              <rect x="624" y="128" width="128" height="26" rx="6" fill="none" stroke="currentColor" stroke-width="1.1"/>
+              <text x="688" y="146" font-size="11.5" fill="currentColor" text-anchor="middle">Correo</text>
+              <rect x="624" y="158" width="128" height="26" rx="6" fill="none" stroke="currentColor" stroke-width="1.1"/>
+              <text x="688" y="176" font-size="11.5" fill="currentColor" text-anchor="middle">Telegram</text>
+              <rect x="624" y="188" width="128" height="26" rx="6" fill="none" stroke="currentColor" stroke-width="1.1"/>
+              <text x="688" y="206" font-size="11.5" fill="currentColor" text-anchor="middle">WhatsApp</text>
+
+              <!-- bitacora -->
+              <line x1="472" y1="182" x2="472" y2="216" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)" opacity=".6"/>
+              <text x="472" y="236" font-size="11" font-family="monospace" fill="currentColor" text-anchor="middle" opacity=".7">bitácora de envíos</text>
+
+              <text x="8" y="18" font-size="11" font-family="monospace" fill="currentColor" opacity=".65" letter-spacing="1.2">DISPARO DE ALERTAS</text>
+            </svg>
+          </div>
+          <figcaption>
+            <b>El cron es el disparador que importa</b>, y está destacado por eso: la mayoría de los cambios
+            de semáforo no los provoca una edición, los provoca el calendario. Una unidad que cruza a ⚫
+            un domingo debe notificarse aunque nadie abra la aplicación — de ahí que v2 necesite ejecución
+            programada con reintentos e idempotencia, no un <code>cron</code> que dispara un HTTP y olvida.
+          </figcaption>
+        </figure>
+
+        <h3>Una regla de producto que hay que preservar</h3>
+        <p>
+          <b>El vendedor no ve el estado ⚫ ni las cifras financieras.</b> Se le muestra como 🔴, y no ve
+          monto financiado, tasa ni interés acumulado. Es deliberado: el costo financiero es información
+          de la agencia, y decirle que la unidad «ya está perdida» desincentiva empujarla. Lo que necesita
+          es urgencia, no contabilidad.
+        </p>
+        <div class="note">
+          <p>
+            <b>Pero hoy es solo ocultamiento visual.</b> Los datos viajan completos al navegador del
+            vendedor y son visibles en las herramientas de desarrollador. Si la regla importa, en v2
+            el filtrado tiene que ocurrir en el servidor.
+          </p>
+        </div>
+      </section>
+
+      <hr>
+
+      <!-- ══════════════ 02 · FEATURES ══════════════ -->
+      <section id="features">
+        <h2><span class="h2n">REPORTE 02</span>Qué hace el MVP hoy</h2>
+        <p class="sec-sub">
+          Ocho vistas navegables. En realidad son <b>dos productos conviviendo</b> en una misma aplicación,
+          más una capa de administración y seis integraciones externas reales.
+        </p>
+
+        <div class="stats">
+          <div class="stat"><div class="v">8</div><div class="k">vistas navegables</div></div>
+          <div class="stat"><div class="v">6 157</div><div class="k">líneas en el CRM</div></div>
+          <div class="stat"><div class="v">2 490</div><div class="k">líneas en un solo componente</div></div>
+          <div class="stat"><div class="v">21</div><div class="k">secciones del expediente</div></div>
+          <div class="stat"><div class="v">7</div><div class="k">extractores con IA</div></div>
+        </div>
+
+        <div class="tw">
+          <table>
+            <thead>
+              <tr><th>Módulo</th><th>Estado</th><th>Veredicto para v2</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><b>Dashboard</b> · semáforo y KPIs</td><td>Completo</td><td>Conservar el concepto, rehacer la implementación</td></tr>
+              <tr><td><b>Inventario</b> · editor</td><td>Completo</td><td>Conservar, incluido el desglose de fórmulas</td></tr>
+              <tr><td><b>Importar Excel</b></td><td>Completo, 2 defectos</td><td>Conservar el comportamiento como especificación</td></tr>
+              <tr><td><b>Alertas</b> · 4 pestañas</td><td>Completo</td><td>Conservar el modelo completo</td></tr>
+              <tr><td><b>CRM</b> · pipeline de 8 etapas</td><td>Funcional, insostenible</td><td>Decisión de producto pendiente</td></tr>
+              <tr><td><b>Equipo</b> · organigrama</td><td>Completo</td><td>Conservar</td></tr>
+              <tr><td><b>Super admin</b></td><td>Completo</td><td>Conservar, con auditoría reforzada</td></tr>
+              <tr><td><b>Dashboard de ventas</b></td><td>Parcial</td><td>Rediseñar junto con el CRM</td></tr>
+              <tr><td>Vista de tablas «Datos»</td><td>Oculta</td><td>Descartar — es depuración disfrazada</td></tr>
+              <tr><td>Módulo de financieras</td><td><b>Muerto</b></td><td>Descartar</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Dos defectos que la reconstrucción debe corregir</h3>
+        <div class="findings">
+          <div class="f sev-alto">
+            <div class="f-top">
+              <span class="f-n">→</span>
+              <span class="f-t">La importación masiva no tiene control de rol</span>
+            </div>
+            <p>
+              La opción se muestra a todos y el componente no comprueba nada. <b>Un vendedor puede
+              reemplazar el inventario de toda la agencia</b> — y su deduplicación por VIN se compara
+              contra la lista filtrada que él ve, así que además es más probable que genere duplicados.
+            </p>
+          </div>
+          <div class="f sev-medio">
+            <div class="f-top">
+              <span class="f-n">→</span>
+              <span class="f-t">La fecha equivocada es la obligatoria</span>
+            </div>
+            <p>
+              El importador exige la fecha de <em>llegada</em> —que no alimenta ningún cálculo— y hace
+              opcional la de <em>factura</em>, que gobierna el semáforo, el interés y las alertas.
+              Cuando falta, la inventa: <code>llegada − 7 días</code>. Produce cifras financieras
+              plausibles y falsas, sin señal alguna al usuario.
+            </p>
+          </div>
+        </div>
+
+        <h3>Lo que sí está bien hecho</h3>
+        <p>
+          La importación de Excel es genuinamente robusta —sinónimos de encabezado, detección de
+          delimitador, validación real de fechas, deduplicación por VIN—, y esa tolerancia al desorden
+          es lo que hace usable el producto: las agencias exportan de sistemas heredados con encabezados
+          impredecibles. El desglose de fórmulas visible al usuario es un diferenciador real en software
+          financiero. Y la granularidad de las alertas —por estado × rol × canal, con plantillas
+          editables— está bien pensada.
+        </p>
+      </section>
+
+      <hr>
+
+      <!-- ══════════════ 03 · LECCIONES ══════════════ -->
+      <section id="lecciones">
+        <h2><span class="h2n">REPORTE 03</span>Lecciones</h2>
+        <p class="sec-sub">
+          El MVP lo construyó alguien sin perfil de desarrollador, y hay que juzgarlo por lo que era:
+          un vehículo para descubrir si el producto tenía sentido. Varios de estos fallos son
+          consecuencia predecible de las restricciones bajo las que se trabajó.
+        </p>
+
+        <h3>La duplicación, dibujada</h3>
+        <figure>
+          <div class="figbox">
+            <svg viewBox="0 0 760 268" role="img"
+                 aria-label="Diagrama de la divergencia: los mismos datos de un vehículo entran a siete implementaciones independientes del cálculo del semáforo. Cuatro de ellas —el motor de la app, el guardado, la importación y el cron— devuelven en intereses cuando no hay días de gracia; dos —el editor y el inicio de sesión— devuelven saludable para los mismos datos.">
+              <defs>
+                <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/>
+                </marker>
+              </defs>
+
+              <text x="8" y="16" font-size="11" font-family="monospace" fill="currentColor" opacity=".65" letter-spacing="1.2">
+                MISMOS DATOS · MISMA UNIDAD · SIN DÍAS DE GRACIA
+              </text>
+
+              <!-- entrada -->
+              <rect x="8" y="106" width="112" height="46" rx="7" fill="var(--card-2)" stroke="currentColor" stroke-width="1.3"/>
+              <text x="64" y="126" font-size="12" fill="currentColor" text-anchor="middle" font-weight="700">Vehículo</text>
+              <text x="64" y="141" font-size="10" font-family="monospace" fill="currentColor" text-anchor="middle" opacity=".7">gracia = 0</text>
+
+              <!-- 7 implementaciones -->
+              <g font-size="11" font-family="monospace">
+                <!-- grupo A: 101 -> intereses -->
+                <rect x="186" y="34"  width="150" height="24" rx="5" fill="none" stroke="var(--sem-5)" stroke-width="1.3"/>
+                <text x="196" y="50" fill="var(--sem-5)">app.jsx</text>
+                <rect x="186" y="64"  width="150" height="24" rx="5" fill="none" stroke="var(--sem-5)" stroke-width="1.3"/>
+                <text x="196" y="80" fill="var(--sem-5)">db.js</text>
+                <rect x="186" y="94"  width="150" height="24" rx="5" fill="none" stroke="var(--sem-5)" stroke-width="1.3"/>
+                <text x="196" y="110" fill="var(--sem-5)">import.jsx</text>
+                <rect x="186" y="124" width="150" height="24" rx="5" fill="none" stroke="var(--sem-5)" stroke-width="1.3"/>
+                <text x="196" y="140" fill="var(--sem-5)">cron  ×2</text>
+
+                <!-- grupo B: 0 -> saludable -->
+                <rect x="186" y="176" width="150" height="24" rx="5" fill="none" stroke="var(--sem-1)" stroke-width="1.3"/>
+                <text x="196" y="192" fill="var(--sem-1)">inventario-editor</text>
+                <rect x="186" y="206" width="150" height="24" rx="5" fill="none" stroke="var(--sem-1)" stroke-width="1.3"/>
+                <text x="196" y="222" fill="var(--sem-1)">login.jsx</text>
+              </g>
+
+              <!-- lineas entrada -> impls -->
+              <g stroke="currentColor" stroke-width="1" opacity=".4" fill="none">
+                <path d="M120 122 C 152 122, 154 46,  184 46"/>
+                <path d="M120 124 C 152 124, 154 76,  184 76"/>
+                <path d="M120 128 C 152 128, 154 106, 184 106"/>
+                <path d="M120 132 C 152 132, 154 136, 184 136"/>
+                <path d="M120 136 C 152 136, 154 188, 184 188"/>
+                <path d="M120 140 C 152 140, 154 218, 184 218"/>
+              </g>
+
+              <!-- salidas -->
+              <g stroke="var(--sem-5)" stroke-width="1.5" fill="none" marker-end="url(#ar2)" opacity=".9">
+                <path d="M336 46  C 386 46,  396 78, 446 78" stroke="var(--sem-5)"/>
+                <path d="M336 76  C 386 76,  396 78, 446 78" stroke="var(--sem-5)"/>
+                <path d="M336 106 C 386 106, 396 80, 446 80" stroke="var(--sem-5)"/>
+                <path d="M336 136 C 386 136, 396 82, 446 82" stroke="var(--sem-5)"/>
+              </g>
+              <g stroke="var(--sem-1)" stroke-width="1.5" fill="none" marker-end="url(#ar2)">
+                <path d="M336 188 C 386 188, 396 190, 446 190" stroke="var(--sem-1)"/>
+                <path d="M336 218 C 386 218, 396 192, 446 192" stroke="var(--sem-1)"/>
+              </g>
+
+              <!-- resultados -->
+              <rect x="450" y="56" width="146" height="46" rx="8" fill="var(--sem-5)"/>
+              <text x="523" y="76" font-size="12.5" fill="#ffffff" text-anchor="middle" font-weight="700">⚫ En intereses</text>
+              <text x="523" y="92" font-size="10.5" font-family="monospace" fill="#ffffff" text-anchor="middle" opacity=".85">pct = 101</text>
+
+              <rect x="450" y="168" width="146" height="46" rx="8" fill="var(--sem-1)"/>
+              <text x="523" y="188" font-size="12.5" fill="#ffffff" text-anchor="middle" font-weight="700">🟢 Saludable</text>
+              <text x="523" y="204" font-size="10.5" font-family="monospace" fill="#ffffff" text-anchor="middle" opacity=".85">pct = 0</text>
+
+              <!-- consecuencia -->
+              <text x="612" y="70" font-size="11.5" fill="currentColor" opacity=".8">lo que ve</text>
+              <text x="612" y="85" font-size="11.5" fill="currentColor" opacity=".8">el tablero</text>
+              <text x="612" y="183" font-size="11.5" fill="currentColor" opacity=".8">lo que ve</text>
+              <text x="612" y="198" font-size="11.5" fill="currentColor" opacity=".8">al iniciar sesión</text>
+
+              <line x1="523" y1="102" x2="523" y2="168" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" opacity=".5"/>
+              <text x="533" y="139" font-size="11.5" font-weight="700" fill="var(--sem-4)">misma unidad</text>
+            </svg>
+          </div>
+          <figcaption>
+            Siete implementaciones independientes de la única regla que justifica el producto.
+            <b>No es duplicación inofensiva: ya divergieron.</b> La causa no fue descuido — sin módulos
+            (todo se comunica por <code>window</code>), copiar el bloque era el camino de menor
+            resistencia, y sin pruebas nada avisó cuando las copias se separaron.
+          </figcaption>
+        </figure>
+
+        <h3>Dónde se aplica el filtrado por rol</h3>
+        <figure>
+          <div class="figbox">
+            <svg viewBox="0 0 760 218" role="img"
+                 aria-label="Comparación de dos arquitecturas. En el MVP, la base de datos envía la fila completa con montos e intereses al navegador, que solo los oculta al pintar, de modo que los datos siguen accesibles. En v2, el servidor filtra los campos según el rol y al navegador solo llega lo que el rol puede ver.">
+              <defs>
+                <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="currentColor"/>
+                </marker>
+                <marker id="ar3g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--sem-1)"/>
+                </marker>
+              </defs>
+
+              <!-- MVP -->
+              <text x="8" y="16" font-size="11" font-family="monospace" fill="var(--sem-4)" letter-spacing="1.2">MVP — HOY</text>
+              <rect x="8"   y="28" width="104" height="42" rx="7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+              <text x="60"  y="54" font-size="12" fill="currentColor" text-anchor="middle">Base de datos</text>
+
+              <line x1="112" y1="49" x2="196" y2="49" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar3)"/>
+              <text x="154" y="42" font-size="10" font-family="monospace" fill="currentColor" text-anchor="middle" opacity=".75">fila completa</text>
+
+              <rect x="200" y="28" width="104" height="42" rx="7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" opacity=".55"/>
+              <text x="252" y="49" font-size="12" fill="currentColor" text-anchor="middle" opacity=".7">Servidor</text>
+              <text x="252" y="63" font-size="10" font-family="monospace" fill="currentColor" text-anchor="middle" opacity=".55">sin filtrar</text>
+
+              <line x1="304" y1="49" x2="388" y2="49" stroke="var(--sem-4)" stroke-width="1.8" marker-end="url(#ar3)"/>
+              <text x="346" y="42" font-size="10" font-family="monospace" fill="var(--sem-4)" text-anchor="middle" font-weight="700">montos + interés</text>
+
+              <rect x="392" y="28" width="128" height="42" rx="7" fill="var(--sem-4-bg)" stroke="var(--sem-4)" stroke-width="1.5"/>
+              <text x="456" y="49" font-size="12" fill="var(--sem-4)" text-anchor="middle" font-weight="700">Navegador</text>
+              <text x="456" y="63" font-size="10" font-family="monospace" fill="var(--sem-4)" text-anchor="middle">oculta al pintar</text>
+
+              <line x1="520" y1="49" x2="560" y2="49" stroke="var(--sem-4)" stroke-width="1.4" marker-end="url(#ar3)"/>
+              <text x="568" y="46" font-size="11.5" fill="var(--sem-4)" font-weight="700">los datos siguen ahí</text>
+              <text x="568" y="61" font-size="11" fill="currentColor" opacity=".7">visibles en el inspector</text>
+
+              <!-- separador -->
+              <line x1="8" y1="104" x2="752" y2="104" stroke="currentColor" stroke-width="1" opacity=".18"/>
+
+              <!-- V2 -->
+              <text x="8" y="136" font-size="11" font-family="monospace" fill="var(--sem-1)" letter-spacing="1.2">V2 — REQUISITO S3</text>
+              <rect x="8"   y="148" width="104" height="42" rx="7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+              <text x="60"  y="174" font-size="12" fill="currentColor" text-anchor="middle">Base de datos</text>
+
+              <line x1="112" y1="169" x2="196" y2="169" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar3)"/>
+              <text x="154" y="162" font-size="10" font-family="monospace" fill="currentColor" text-anchor="middle" opacity=".75">fila completa</text>
+
+              <rect x="200" y="148" width="104" height="42" rx="7" fill="var(--sem-1-bg)" stroke="var(--sem-1)" stroke-width="1.6"/>
+              <text x="252" y="169" font-size="12" fill="var(--sem-1)" text-anchor="middle" font-weight="700">Servidor</text>
+              <text x="252" y="183" font-size="10" font-family="monospace" fill="var(--sem-1)" text-anchor="middle">filtra por rol</text>
+
+              <line x1="304" y1="169" x2="388" y2="169" stroke="var(--sem-1)" stroke-width="1.8" marker-end="url(#ar3g)"/>
+              <text x="346" y="162" font-size="10" font-family="monospace" fill="var(--sem-1)" text-anchor="middle" font-weight="700">solo lo permitido</text>
+
+              <rect x="392" y="148" width="128" height="42" rx="7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+              <text x="456" y="174" font-size="12" fill="currentColor" text-anchor="middle">Navegador</text>
+
+              <line x1="520" y1="169" x2="560" y2="169" stroke="var(--sem-1)" stroke-width="1.4" marker-end="url(#ar3g)"/>
+              <text x="568" y="166" font-size="11.5" fill="var(--sem-1)" font-weight="700">no puede filtrarse</text>
+              <text x="568" y="181" font-size="11" fill="currentColor" opacity=".7">lo que no llega, no se ve</text>
+            </svg>
+          </div>
+          <figcaption>
+            La única diferencia entre las dos arquitecturas es <b>dónde ocurre el filtrado</b>. El mismo
+            patrón aplica a las tres reglas de visibilidad del producto — el estado ⚫, los montos
+            financieros y la separación entre tenants: en el MVP son decisiones de render; en v2 tienen
+            que ser decisiones de servidor.
+          </figcaption>
+        </figure>
+
+        <h3>Lo que se hizo bien</h3>
+        <p>
+          No es cortesía: es el listón que v2 no debería bajar, y son decisiones que un equipo con más
+          experiencia podría haber equivocado.
+        </p>
+        <ul class="cl keep">
+          <li><b>Ni un solo secreto en el repositorio</b>, con 324 commits y sin revisión de código.</li>
+          <li><b>El almacén de documentos con PII está correctamente cerrado</b> — verificado: sin acceso anónimo, con URLs firmadas de vida corta.</li>
+          <li>La clave de servicio bien aislada en el servidor, nunca en el cliente.</li>
+          <li>Persistir solo el estado <em>notificado</em> y calcular el resto en lectura — la decisión correcta para un valor que depende del tiempo.</li>
+          <li>Los bloqueos de permisos se detectan y se explican con mensajes accionables.</li>
+          <li>Fechas ancladas a mediodía para evitar corrimientos por huso horario.</li>
+          <li>Correcciones de fórmula deliberadas y comentadas en el propio código.</li>
+          <li><b>Documentación de producto y sistema de diseño de calidad profesional</b> — mejor que la de muchos productos con equipo formal.</li>
+        </ul>
+      </section>
+
+      <hr>
+
+      <!-- ══════════════ 04 · V2 ══════════════ -->
+      <section id="v2">
+        <h2><span class="h2n">REPORTE 04</span>Requisitos para v2</h2>
+        <p class="sec-sub">
+          De todos los requisitos, hay uno que restringe más que ningún otro — y no es el multi-tenant
+          ni la IA.
+        </p>
+
+        <div class="panel">
+          <div class="panel-lbl">El requisito que manda</div>
+          <p style="font-size:16.5px;line-height:1.55;margin-bottom:10px;">
+            <b>La regla del semáforo tiene que ejecutarse idénticamente en el navegador, en el servidor
+            y en un trabajo programado.</b>
+          </p>
+          <p style="margin:0;color:var(--ink-2);font-size:14.5px;">
+            Eso implica un lenguaje común entre cliente y servidor, con módulos reales. Es la lección 1
+            convertida en restricción de diseño: el MVP falló exactamente aquí, y no por descuido, sino
+            porque su arquitectura no permitía compartir código.
+          </p>
+        </div>
+
+        <div class="dec">
+          <div class="dec-q">La única decisión que conviene no aplazar: autenticación</div>
+          <p>
+            Es la única pieza del MVP sin equivalente cómodo en tu stack, y la más cara de sustituir
+            después. <b>Cognito</b> encaja con el resto de la infraestructura y cubre lo que el producto
+            realmente necesita —invitación por correo, roles, recuperación de contraseña— a cambio de
+            una DX áspera que se paga una vez. Un <b>servicio gestionado</b> (Clerk, WorkOS) da mejor
+            DX y SSO empresarial resuelto, con costo por usuario activo. <b>Auth propio en Nest</b> da
+            control total y te deja manteniendo superficie de seguridad.
+          </p>
+          <div class="dec-rec">
+            <b>Lectura:</b> es B2B para equipos pequeños con jerarquía interna, no consumo masivo — el
+            volumen de usuarios será bajo. Cognito basta. Pero venga de donde venga,
+            <b>abstráela detrás de una interfaz propia desde el día uno</b>: es el único punto donde
+            una decisión equivocada se vuelve difícil de revertir.
+          </div>
+        </div>
+
+        <h3>Recomendación de arquitectura</h3>
+        <div class="note" style="border-left-color:var(--link);background:var(--card-2)">
+          <p>
+            <b>Revisada.</b> La primera versión recomendaba Next.js sobre Vercel, apoyándose en que el
+            MVP ya estaba desplegado ahí. Conocida la experiencia del lead que ejecutará la
+            reconstrucción —TypeScript, NestJS, Prisma, AWS— ese argumento se cae: «ya estamos en
+            Vercel» pesa mucho menos que «quien construye conoce el terreno». En una reconstrucción el
+            riesgo dominante no es elegir el framework subóptimo, es ir lento en tecnología desconocida.
+            <b>Los requisitos no cambian; la recomendación sí.</b>
+          </p>
+        </div>
+
+        <div class="tw">
+          <table>
+            <thead><tr><th>Capa</th><th>Recomendación</th><th>Por qué</th></tr></thead>
+            <tbody>
+              <tr><td><b>Estructura</b></td><td>Monorepo TypeScript con paquete <code>domain</code> puro</td><td>El semáforo vive ahí, importado por API, worker y frontend</td></tr>
+              <tr><td><b>API</b></td><td>NestJS</td><td>Resuelve el requisito que manda <b>más limpio</b> que Next: la frontera dominio/transporte es explícita</td></tr>
+              <tr><td><b>Frontend</b></td><td>React + Vite, SPA</td><td>Con Nest como API, un SPA es más simple</td></tr>
+              <tr><td><b>Datos</b></td><td>Prisma Migrate sobre <b>RDS</b> PostgreSQL</td><td>Fin del problema de reproducibilidad. Aurora es prematuro — ver abajo</td></tr>
+              <tr><td><b>Aislamiento</b></td><td>Prisma Client Extension + pruebas obligatorias</td><td>Ver abajo: es el punto que más cambia</td></tr>
+              <tr><td><b>Trabajos</b></td><td>EventBridge Scheduler → SQS → worker</td><td><b>Aquí AWS gana claro</b>: reintentos, DLQ y visibilidad nativos</td></tr>
+              <tr><td><b>Correo</b></td><td>SES</td><td>Sustituye a Brevo. Más barato y ya lo conoces</td></tr>
+              <tr><td><b>Documentos</b></td><td>S3 con URLs prefirmadas</td><td>Equivalente directo a lo que el MVP hizo bien</td></tr>
+              <tr><td><b>Autenticación</b></td><td><b>La decisión abierta</b></td><td>Única pieza sin equivalente cómodo en tu stack</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          <b>Dónde esta opción supera a la anterior:</b> los trabajos programados —el punto más débil
+          del MVP y el más flojo de mi recomendación previa— quedan resueltos por infraestructura y no
+          por disciplina; y el filtrado por rol deja de ser un <code>if</code> en el render para
+          convertirse en una anotación en el DTO, verificable en una prueba.
+        </p>
+
+        <h3>El punto que más cambia: Prisma y el aislamiento</h3>
+        <p>
+          Mi recomendación anterior se apoyaba en RLS como defensa en profundidad. <b>Con Prisma eso
+          se vuelve incómodo</b> — no hay soporte nativo, y hacerlo funcionar exige envolver cada
+          consulta en una transacción interactiva. Conviene decirlo en vez de recomendar algo que en
+          la práctica se abandona al tercer sprint.
+        </p>
+        <div class="note">
+          <p>
+            <b>Recomendación:</b> acotación por tenant en la capa de consulta, con una extensión de
+            Prisma que intercepte toda operación e inyecte el filtro — y que <b>lance si no hay
+            contexto de tenant</b>, en lugar de consultar sin filtrar.
+          </p>
+          <p style="margin-top:10px">
+            El argumento decisivo lo acaba de dar el propio MVP: <b>esta barrera es más difícil de
+            desactivar que RLS.</b> El fallo real no fue que RLS fuera mala — fue que alguien la apagó
+            desde un panel web y nadie pudo notarlo. Una extensión de Prisma vive en el repositorio,
+            pasa por revisión de código y no tiene interruptor en ninguna consola. Es exactamente la
+            propiedad que faltaba.
+          </p>
+        </div>
+        <p>
+          El precio es perder la red del motor: un acceso fuera de Prisma no queda protegido. Se
+          compensa con las pruebas de aislamiento en CI —que son la barrera real de todos modos— y un
+          usuario de solo lectura para operación manual. Si más adelante quieres la segunda capa, RLS
+          se añade sobre un esquema ya versionado sin rehacer la aplicación.
+        </p>
+
+        <h3>Dos advertencias de costo</h3>
+        <p>
+          <b>Aurora es prematuro.</b> Serverless v2 tiene un piso de capacidad que se paga aunque el
+          sistema esté ocioso, antes de almacenamiento y E/S. Para un producto pre-ingresos con cuatro
+          workspaces de demostración es gasto sin contrapartida. Empieza en RDS <code>t4g.micro</code>:
+          mismo Postgres, una fracción del costo, y migrar después es un cambio de endpoint.
+        </p>
+        <p>
+          <b>SES necesita salir del sandbox</b>, y eso requiere solicitud y aprobación de AWS. Además,
+          un dominio nuevo necesita calentamiento y SPF/DKIM/DMARC bien configurados para no caer en
+          spam — crítico en un producto cuya promesa es que la alerta <em>llegue</em>. Pídelo en la
+          fase 0: bloquea la fase 2.
+        </p>
+
+        <h3>Orden de construcción</h3>
+        <div class="tw">
+          <table>
+            <thead><tr><th style="width:96px">Fase</th><th>Entrega</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="mono"><b>0</b><br><span style="color:var(--muted);font-size:11px">cimientos</span></td>
+                <td>
+                  Monorepo (<code>domain</code> · <code>api</code> · <code>worker</code> ·
+                  <code>web</code>) y CI desde el primer commit · paquete <code>domain</code> con los
+                  vectores del semáforo en verde · esquema en Prisma Migrate con datos semilla ·
+                  <b>la extensión de tenant y sus pruebas de aislamiento antes de la primera
+                  pantalla</b> · decidir autenticación · <b>solicitar salida del sandbox de SES</b>.
+                  <div style="margin-top:7px;color:var(--ok);font-size:13px;font-weight:600;">
+                    Al terminar esta fase ya están cubiertas las lecciones 1 a 4.
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="mono"><b>1</b><br><span style="color:var(--muted);font-size:11px">producto mínimo</span></td>
+                <td>Autenticación, roles y jerarquía con filtrado por rol en los DTO · inventario con semáforo y desglose de fórmulas · importación de Excel · dashboard con KPIs.</td>
+              </tr>
+              <tr>
+                <td class="mono"><b>2</b><br><span style="color:var(--muted);font-size:11px">la promesa</span></td>
+                <td>
+                  EventBridge → SQS → worker, con DLQ, idempotencia y alarma si un día no corre ·
+                  alertas por SES con reglas y plantillas · Telegram.
+                  <div style="margin-top:7px;color:var(--ok);font-size:13px;font-weight:600;">
+                    Punto de corte para volver a poner clientes: aquí el producto cumple su promesa.
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="mono"><b>3</b><br><span style="color:var(--muted);font-size:11px">según decisión</span></td>
+                <td>CRM con expediente, cumplimiento y extracción con IA · WhatsApp · super admin y auditoría.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Una dependencia con fecha de caducidad</h3>
+        <p>
+          El panel marca el secreto <code>SUPABASE_ANON_KEY</code> como <b>DEPRECATED</b> — Supabase
+          migra al esquema de claves <em>publishable</em> / <em>secret</em>. <b>Cinco de las nueve
+          funciones de servidor la leen</b> para validar el token del usuario:
+          <code>delete-user</code>, <code>invite-user</code>, <code>send-alert</code>,
+          <code>send-telegram</code> y <code>telegram-link</code>. El día que Supabase la retire,
+          se caen las invitaciones, las alertas, el vínculo de Telegram y el borrado de usuarios —
+          sin aviso previo en la aplicación.
+        </p>
+        <p>
+          Es el mismo patrón que el hosting de GitHub Pages que quedó muerto en la guía de
+          despliegue: <b>infraestructura que cambia debajo sin que nadie lo note hasta que algo se
+          rompe</b>. Para v2 es un requisito, no una anécdota: las dependencias con ciclo de vida
+          del proveedor tienen que estar inventariadas y vigiladas.
+        </p>
+
+        <h3>Lo que queda por verificar</h3>
+        <p>
+          El Security Advisor y el inventario de secretos cerraron las preguntas de seguridad.
+          De lo que queda, solo dos cosas tienen consecuencia real — y las dos se responden en un
+          minuto, sin tocar nada:
+        </p>
+        <ol>
+          <li><b>El <em>valor</em> de <code>SITE_URL</code>.</b> Existe, así que las alertas no usan el respaldo muerto. Pero si lo pusieron con la URL vieja, los enlaces siguen rotos.</li>
+          <li><b>Si el cron está programado</b> — <code>SELECT * FROM cron.job;</code>. De esto depende que las alertas por paso del tiempo existan del todo.</li>
+          <li>Volumen real por tabla · usuarios de autenticación reales · si hay respaldos PITR activos.</li>
+        </ol>
+        <div class="panel" style="border-left:3px solid var(--ok)">
+          <div class="panel-lbl">Resuelto — reproducido en local y corregido</div>
+          <p>
+            Ya sabemos <b>por qué se desactivó RLS</b>, y no era lo que parecía. El super admin
+            nunca fue el problema: con RLS activa lee todas las agencias y crea workspaces sin
+            fricción. Lo que se rompía era <b>crear un workspace siendo agency owner</b>.
+          </p>
+          <p>
+            <code>db.js → createWorkspace()</code> hace <code>.insert({...}).select()</code>, que es
+            un <code>INSERT ... RETURNING</code>. Postgres aplica la política de <em>lectura</em> a la
+            fila devuelta — y esa política consultaba <code>workspaces</code> a través de una función
+            <code>STABLE</code>, que ve el snapshot previo al insert. <b>La fila recién creada no
+            existía todavía para su propia política.</b>
+          </p>
+          <div class="tw" style="margin:14px 0 4px">
+            <table>
+              <thead><tr><th>Petición</th><th>Resultado</th></tr></thead>
+              <tbody>
+                <tr><td><code>INSERT</code> sin <code>return=representation</code></td><td>✅ 201</td></tr>
+                <tr><td><code>INSERT</code> con <code>return=representation</code></td><td>❌ 403 — violación de RLS</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin-top:14px">
+            Explica también por qué se apagó justo ahí y en ninguna otra tabla: <code>workspaces</code>
+            es la única cuya política de lectura se consultaba a sí misma. Corregido en una migración
+            versionada y verificado sobre una base reconstruida desde cero: <b>8 de 8 pruebas</b> de
+            aislamiento y escritura.
+          </p>
+          <p style="margin-bottom:0">
+            <b>Y afina el requisito para v2:</b> no basta con probar el aislamiento en lectura. Una
+            prueba que solo leyera habría dado verde con esta política rota. Hay que ejercitar
+            <b>crear, actualizar y borrar</b> bajo cada rol.
+          </p>
+        </div>
+        <p>
+          Y en el panel de secretos: si <code>SITE_URL</code> está configurado. De él depende que los
+          enlaces de las alertas no lleven a una página 404 — la URL de respaldo apunta al hosting
+          anterior, que verifiqué que ya no existe.
+        </p>
+      </section>
+
+      <!-- ══════════════ PIE ══════════════ -->
+      <div class="foot">
+        <p style="max-width:var(--measure)">
+          <b>Cómo se verificó.</b> Lectura completa de la capa de datos y del componente raíz, pasajes
+          verificados de los 18 módulos restantes y las 9 funciones de servidor, comparación con
+          <code>diff</code> de las copias duplicadas, análisis de 324 commits, y sondeo <b>de solo
+          lectura</b> contra producción: existencia de tablas, estructura de <code>workspaces</code>,
+          tres pruebas de exposición del almacén de documentos y comprobación HTTP de las URLs de
+          respaldo. Ninguna escritura.
+        </p>
+        <p style="max-width:var(--measure)">
+          Cada afirmación técnica de los documentos completos lleva referencia a <code>archivo:línea</code>
+          o al sondeo que la produjo. Detalle en <code>docs/01-DOMINIO.md</code>,
+          <code>02-MVP-FEATURES.md</code>, <code>03-LECCIONES-DEL-MVP.md</code> y
+          <code>04-REQUISITOS-V2.md</code>.
+        </p>
+        <p style="max-width:var(--measure);color:var(--muted)">
+          <b>No verificado:</b> qué secretos están configurados en producción, si el cron está
+          efectivamente programado, y si la exposición de <code>workspaces</code> incluye escritura
+          además de lectura. Declarado explícitamente para que no se lea como afirmación.
+        </p>
+      </div>
+
+    </div>
+  </main>
+</div>
