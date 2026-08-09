@@ -16,6 +16,11 @@ node_modules/
 npm-debug.log*
 .npm/
 
+# ── Claude Code ──────────────────────────────────────────────
+# Las skills (.claude/skills/) SÍ se versionan: son herramienta de equipo.
+# La bitácora de sesiones es cuaderno personal de cada quien.
+.claude/sessions/
+
 # ── Sistema operativo ────────────────────────────────────────
 Thumbs.db
 Desktop.ini
