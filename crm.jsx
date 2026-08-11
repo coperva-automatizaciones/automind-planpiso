@@ -4529,7 +4529,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
               );
             })()}
 
-            {/* § DOCUMENTOS DE CUMPLIMIENTO — Lavado de dinero + Conformación */}
+            {/* § DOCUMENTOS DE CUMPLIMIENTO — Lavado de dinero + Confirmación */}
             {(function() {
               var ICO_SHIELD = (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" width="14" height="14"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);
               var tipo = form.docLavadoDineroTipo || "fisica";
@@ -4570,8 +4570,8 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                         readOnly={false} />
                     </div>
                   </Fld>
-                  {/* Conformación */}
-                  <Fld label="Conformación" full>
+                  {/* Confirmación */}
+                  <Fld label="Confirmación" full>
                     <DocSimpleUpload
                       label="Documento de conformación"
                       sublabel="JPG · PNG · PDF"
