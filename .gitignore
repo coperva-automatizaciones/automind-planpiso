@@ -26,6 +26,24 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# ── Herramientas de sesión ───────────────────────────────────
+# Capturas, snapshots y logs que deja el navegador automatizado.
+.playwright-mcp/
+
+# ── Reportes de entregables ──────────────────────────────────
+# Se publican como artifacts y son material de trabajo personal.
+# El repositorio conserva la documentación de dominio (01 a 06).
+docs/00-INDICE-ENTREGABLES.html
+docs/07-ESTADO-FUNCIONAL.html
+docs/09-RECORRIDO-FUNCIONAL.html
+docs/F1-*.html
+docs/F2-*.html
+docs/F3-*.html
+docs/F4-*.html
+docs/F5-*.html
+docs/F6-*.html
+docs/img/
+
 # ── Nota ─────────────────────────────────────────────────────
 # config.js SÍ se versiona: contiene la anon key, que es pública por diseño.
 # En v2 esto cambia — las credenciales pasan a variables de entorno.
