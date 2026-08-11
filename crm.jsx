@@ -4573,7 +4573,7 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   {/* Confirmación */}
                   <Fld label="Confirmación" full>
                     <DocSimpleUpload
-                      label="Documento de conformación"
+                      label="Documento de confirmación"
                       sublabel="JPG · PNG · PDF"
                       value={form.docConformacion || null}
                       onChange={v => set("docConformacion", v)}
