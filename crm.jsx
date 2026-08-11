@@ -75,14 +75,13 @@ function Ini({ nombre, bg }) {
   );
 }
 
-/* ── Generadores de formularios AMDA (Prevención de lavado de dinero) ── */
+/* ── Formularios AMDA — llenado del PDF original (pdf-lib CDN) ──────── */
 
 function parsearNombreMx(nombreCompleto) {
   var partes = (nombreCompleto || "").trim().split(/\s+/).filter(Boolean);
   if (partes.length === 0) return { nombres: "", apPaterno: "", apMaterno: "" };
   if (partes.length === 1) return { nombres: partes[0], apPaterno: "", apMaterno: "" };
   if (partes.length === 2) return { nombres: partes[0], apPaterno: partes[1], apMaterno: "" };
-  // 3+ palabras: los dos últimos = apellidos, el resto = nombre(s)
   var apMaterno = partes[partes.length - 1];
   var apPaterno = partes[partes.length - 2];
   var nombres   = partes.slice(0, partes.length - 2).join(" ");
@@ -95,568 +94,101 @@ function _fmtFechaMxAmda(iso) {
   return d.toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" });
 }
 
-function _estilosAmda() {
-  return [
-    "<style>",
-    "@page { size: A4; margin: 1.2cm 1.2cm 1.5cm 1.2cm; }",
-    "* { box-sizing: border-box; }",
-    "body { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; margin:0; padding:0; color:#111; }",
-    "table { width:100%; border-collapse:collapse; margin-bottom:4px; }",
-    "td, th { border:1px solid #555; padding:3px 5px; vertical-align:top; }",
-    ".hdr { background:#1a4a3c; color:#fff; font-weight:bold; font-size:8pt; text-align:center; padding:6px; }",
-    ".shdr { background:#2d6a4f; color:#fff; font-weight:bold; font-size:7.5pt; padding:4px 6px; }",
-    ".lbl { background:#e8f5e9; font-weight:bold; font-size:7pt; color:#1a4a3c; white-space:nowrap; min-width:90px; }",
-    ".val { font-size:8pt; color:#111; }",
-    ".val-u { border-bottom:1px solid #aaa; min-height:14px; padding-bottom:1px; }",
-    ".chk { display:inline-block; width:10px; height:10px; border:1px solid #555; margin-right:4px; vertical-align:middle; }",
-    ".firma-box { border:1px solid #555; height:50px; margin-top:4px; }",
-    ".txt-small { font-size:7pt; line-height:1.5; }",
-    ".mono { font-family:'Courier New',monospace; letter-spacing:0.5px; }",
-    "@media print {",
-    "  body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }",
-    "  .no-print { display:none !important; }",
-    "  .page-break { page-break-before:always; }",
-    "}",
-    "</style>",
-  ].join("\n");
-}
-
-function generarFormularioPF(form, agenciaNombre) {
-  var p   = parsearNombreMx(form.nombre || "");
-  var hoy = new Date().toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" });
-  var ag  = agenciaNombre || "";
-  var f   = form;
-  var v   = function(val) { return val || ""; };
-
-  var html = [
-    "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'>",
-    "<title>Identificación PF AMDA — " + v(f.nombre) + "</title>",
-    _estilosAmda(),
-    "</head><body>",
-
-    // ── Botón imprimir (no aparece al imprimir)
-    "<div class='no-print' style='text-align:right;padding:8px 12px;background:#f0fdf4;",
-    "border-bottom:2px solid #1a4a3c;margin-bottom:8px;'>",
-    "<span style='font-size:11pt;color:#1a4a3c;margin-right:16px;font-weight:bold;'>",
-    "Formulario AMDA — Identificación Persona Física</span>",
-    "<button onclick='window.print()' style='background:#1a4a3c;color:#fff;border:none;",
-    "padding:8px 22px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:bold;'>",
-    "🖨️ Imprimir / Guardar PDF</button></div>",
-
-    // ══ ENCABEZADO ══
-    "<table><tr>",
-    "<td class='hdr' style='width:20%;font-size:14pt;font-weight:900;letter-spacing:1px;'>AMDA</td>",
-    "<td class='hdr' style='font-size:9.5pt;'>FORMULARIO DE IDENTIFICACIÓN DEL CLIENTE<br>",
-    "<span style='font-size:7.5pt;font-weight:normal;'>",
-    "Prevención de Lavado de Dinero — Entidades Financieras</span></td>",
-    "<td class='hdr' style='width:20%;font-size:8.5pt;'>PERSONA FÍSICA</td>",
-    "</tr></table>",
-
-    // ── Empresa + fecha
-    "<table><tr>",
-    "<td class='lbl' style='width:110px;'>Empresa que elabora</td>",
-    "<td class='val val-u'>" + v(ag) + "</td>",
-    "<td class='lbl' style='width:42px;'>Fecha</td>",
-    "<td class='val val-u' style='width:80px;'>" + hoy + "</td>",
-    "</tr></table>",
-
-    // ══ DATOS GENERALES ══
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>DATOS GENERALES</td></tr>",
-    "<tr>",
-    "<td class='lbl' style='width:120px;'>Nombre(s) sin abreviaturas</td>",
-    "<td class='val val-u' colspan='7'>" + v(p.nombres) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Apellido paterno</td>",
-    "<td class='val val-u' style='width:28%;'>" + v(p.apPaterno) + "</td>",
-    "<td class='lbl' style='width:90px;'>Apellido materno</td>",
-    "<td class='val val-u' colspan='5'>" + v(p.apMaterno) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Fecha de nacimiento</td>",
-    "<td class='val val-u'>" + _fmtFechaMxAmda(f.fechaNac) + "</td>",
-    "<td class='lbl' style='width:90px;'>País de nacimiento</td>",
-    "<td class='val val-u'>México</td>",
-    "<td class='lbl' style='width:100px;'>País de nacionalidad</td>",
-    "<td class='val val-u' colspan='3'>Mexicana</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Actividad / ocupación</td>",
-    "<td class='val val-u' colspan='7'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>C.U.R.P.</td>",
-    "<td class='val val-u mono' colspan='3' style='letter-spacing:1px;'>" + v(f.curp) + "</td>",
-    "<td class='lbl'>R.F.C.</td>",
-    "<td class='val val-u mono' colspan='3'>" + v(f.rfc) + "</td>",
-    "</tr>",
-    "</table>",
-
-    // ══ DOMICILIO ══
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>DOMICILIO</td></tr>",
-    "<tr>",
-    "<td class='lbl' style='width:50px;'>Tipo</td>",
-    "<td class='val' colspan='7'>",
-    "<span class='chk'></span>Nacional &nbsp;&nbsp;",
-    "<span class='chk'></span>Extranjero",
-    "</td></tr>",
-    "<tr>",
-    "<td class='lbl'>Calle, avenida o vía</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.direccion) + "</td>",
-    "<td class='lbl'>Colonia o urbanización</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.colonia) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>País</td>",
-    "<td class='val val-u'>México</td>",
-    "<td class='lbl' style='width:110px;'>Demarcación o municipio</td>",
-    "<td class='val val-u'>" + v(f.estado) + "</td>",
-    "<td class='lbl'>Ciudad / entidad</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.ciudad) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Código postal</td>",
-    "<td class='val val-u' style='width:65px;'>" + v(f.cp) + "</td>",
-    "<td class='lbl'>Número exterior</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>Número interior</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "</tr>",
-    "</table>",
-
-    // ══ DATOS DE CONTACTO ══
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>DATOS DE CONTACTO</td></tr>",
-    "<tr>",
-    "<td class='lbl'>Núm. telefónico con clave lada</td>",
-    "<td class='val val-u'>" + v(f.tel) + "</td>",
-    "<td class='lbl' style='width:52px;'>Extensión</td>",
-    "<td class='val val-u' style='width:55px;'></td>",
-    "<td class='lbl'>Correo electrónico</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.email) + "</td>",
-    "</tr>",
-    "</table>",
-
-    // ══ IDENTIFICACIÓN OFICIAL ══
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>IDENTIFICACIÓN OFICIAL</td></tr>",
-    "<tr>",
-    "<td class='lbl'>Nombre de la identificación</td>",
-    "<td class='val val-u'>" + v(f.tipoLic) + "</td>",
-    "<td class='lbl'>Autoridad que la emite</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>Número o folio</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.numLicencia) + "</td>",
-    "</tr>",
-    "</table>",
-
-    // ══ DECLARACIÓN ══
-    "<table style='margin-top:5px;'><tr>",
-    "<td class='val txt-small' style='padding:6px;background:#fafafa;'>",
-    "Bajo protesta de decir verdad, manifiesto que los datos e información señalados en el presente ",
-    "formulario son auténticos, exactos y completos. Asimismo, acepto y autorizo que la concesionaria ",
-    "coteje, verifique y recabe la información aquí proporcionada con las Autoridades competentes ",
-    "y/o las Entidades Financieras que estime pertinente, conforme a la <em>Ley Federal para la Prevención ",
-    "e Identificación de Operaciones con Recursos de Procedencia Ilícita</em> y su Reglamento.",
-    "</td></tr></table>",
-
-    // ── Firmas
-    "<table style='margin-top:4px;border:none;'>",
-    "<tr>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Nombre y firma del cliente</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: " + v(f.nombre) + "</div>",
-    "</td>",
-    "<td style='border:none;width:8%;'></td>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Nombre y firma del asesor</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: ________________________</div>",
-    "</td>",
-    "</tr></table>",
-
-    // ══════════════════════════════════════════
-    // ══ PÁGINA 2: BENEFICIARIO CONTROLADOR ══
-    // ══════════════════════════════════════════
-    "<div class='page-break'></div>",
-
-    "<table><tr>",
-    "<td class='hdr' style='width:20%;font-size:14pt;font-weight:900;'>AMDA</td>",
-    "<td class='hdr' style='font-size:9pt;'>DATOS DEL BENEFICIARIO CONTROLADOR</td>",
-    "<td class='hdr' style='width:20%;font-size:8pt;'>PERSONA FÍSICA</td>",
-    "</tr></table>",
-
-    "<table style='margin-top:6px;'><tr>",
-    "<td class='val txt-small' style='padding:6px;background:#fafafa;'>",
-    "¿Existe alguna persona diferente al cliente que tenga el control, la influencia o se beneficia de la ",
-    "operación de compra del vehículo? <strong>(Beneficiario Controlador)</strong>",
-    "</td></tr><tr>",
-    "<td style='padding:8px;'>",
-    "<span class='chk'></span> <strong>NO</strong> — El cliente actúa por cuenta propia &nbsp;&nbsp;&nbsp;&nbsp;",
-    "<span class='chk'></span> <strong>SÍ</strong> — Complete los datos a continuación",
-    "</td></tr></table>",
-
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>DATOS DEL BENEFICIARIO CONTROLADOR (llenar solo si aplica)</td></tr>",
-    "<tr>",
-    "<td class='lbl' style='width:120px;'>Nombre(s) sin abreviaturas</td>",
-    "<td class='val val-u' colspan='7'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Apellido paterno</td>",
-    "<td class='val val-u' style='width:28%;'></td>",
-    "<td class='lbl' style='width:90px;'>Apellido materno</td>",
-    "<td class='val val-u' colspan='5'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Fecha de nacimiento</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>País de nacimiento</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>País de nacionalidad</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>C.U.R.P.</td>",
-    "<td class='val val-u mono' colspan='3'></td>",
-    "<td class='lbl'>R.F.C.</td>",
-    "<td class='val val-u mono' colspan='3'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Calle, avenida o vía</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "<td class='lbl'>Colonia o urbanización</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Ciudad / entidad</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>Código postal</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>Identificación oficial</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "</tr>",
-    "</table>",
-
-    "<table style='margin-top:5px;'><tr>",
-    "<td class='val txt-small' style='padding:6px;background:#fafafa;'>",
-    "Declaro que la información proporcionada en el presente formulario es verdadera y correcta, ",
-    "y me comprometo a notificar cualquier cambio a la concesionaria de forma inmediata.",
-    "</td></tr></table>",
-
-    "<table style='margin-top:4px;border:none;'>",
-    "<tr>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Nombre y firma del cliente</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: " + v(f.nombre) + "</div>",
-    "</td>",
-    "<td style='border:none;width:8%;'></td>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Nombre y firma del asesor</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: ________________________</div>",
-    "</td>",
-    "</tr></table>",
-
-    // ══════════════════════════════════════════
-    // ══ PÁGINA 3: CHECKLIST DE DOCUMENTOS ══
-    // ══════════════════════════════════════════
-    "<div class='page-break'></div>",
-
-    "<table><tr>",
-    "<td class='hdr' style='width:20%;font-size:14pt;font-weight:900;'>AMDA</td>",
-    "<td class='hdr' style='font-size:9pt;'>DOCUMENTOS REQUERIDOS — PERSONA FÍSICA</td>",
-    "<td class='hdr' style='width:20%;font-size:8pt;'>CHECKLIST</td>",
-    "</tr></table>",
-
-    "<table style='margin-top:8px;'>",
-    "<tr><td class='shdr' colspan='2'>Identificación y datos personales</td></tr>",
-    "<tr><td style='width:28px;text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Identificación oficial vigente con fotografía (INE / Pasaporte / FM3)</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>CURP (Clave Única de Registro de Población)</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>RFC con Constancia de Situación Fiscal emitida por el SAT</td></tr>",
-    "<tr><td class='shdr' colspan='2'>Domicilio</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Comprobante de domicilio reciente (máximo 3 meses de antigüedad)</td></tr>",
-    "<tr><td class='shdr' colspan='2'>Documentos de cumplimiento</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Formulario de identificación firmado (el presente documento)</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Aviso de privacidad firmado</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Declaración de beneficiario controlador (si aplica)</td></tr>",
-    "</table>",
-
-    "<table style='margin-top:20px;border:none;'>",
-    "<tr>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Cotejo realizado por</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: ________________________</div>",
-    "</td>",
-    "<td style='border:none;width:8%;'></td>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Sello de la empresa</div>",
-    "<div class='firma-box'></div>",
-    "</td>",
-    "</tr></table>",
-
-    "</body></html>",
-  ].join("");
-
-  return html;
-}
-
-function generarFormularioPM(form, agenciaNombre) {
-  var p   = parsearNombreMx(form.nombre || "");
-  var hoy = new Date().toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" });
-  var ag  = agenciaNombre || "";
-  var f   = form;
-  var v   = function(val) { return val || ""; };
-
-  var html = [
-    "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'>",
-    "<title>Identificación PM AMDA — " + v(f.nombre) + "</title>",
-    _estilosAmda(),
-    "</head><body>",
-
-    "<div class='no-print' style='text-align:right;padding:8px 12px;background:#f0fdf4;",
-    "border-bottom:2px solid #1a4a3c;margin-bottom:8px;'>",
-    "<span style='font-size:11pt;color:#1a4a3c;margin-right:16px;font-weight:bold;'>",
-    "Formulario AMDA — Identificación Persona Moral</span>",
-    "<button onclick='window.print()' style='background:#1a4a3c;color:#fff;border:none;",
-    "padding:8px 22px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:bold;'>",
-    "🖨️ Imprimir / Guardar PDF</button></div>",
-
-    // ══ ENCABEZADO ══
-    "<table><tr>",
-    "<td class='hdr' style='width:20%;font-size:14pt;font-weight:900;letter-spacing:1px;'>AMDA</td>",
-    "<td class='hdr' style='font-size:9.5pt;'>FORMULARIO DE IDENTIFICACIÓN DEL CLIENTE<br>",
-    "<span style='font-size:7.5pt;font-weight:normal;'>",
-    "Prevención de Lavado de Dinero — Entidades Financieras</span></td>",
-    "<td class='hdr' style='width:20%;font-size:8.5pt;'>PERSONA MORAL</td>",
-    "</tr></table>",
-
-    "<table><tr>",
-    "<td class='lbl' style='width:110px;'>Empresa que elabora</td>",
-    "<td class='val val-u'>" + v(ag) + "</td>",
-    "<td class='lbl' style='width:42px;'>Fecha</td>",
-    "<td class='val val-u' style='width:80px;'>" + hoy + "</td>",
-    "</tr></table>",
-
-    // ══ DATOS DE LA EMPRESA CLIENTE ══
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>DATOS DE LA EMPRESA CLIENTE</td></tr>",
-    "<tr>",
-    "<td class='lbl' style='width:120px;'>Denominación o razón social</td>",
-    "<td class='val val-u' colspan='7'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Fecha de constitución</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl' style='width:100px;'>País de nacionalidad</td>",
-    "<td class='val val-u' colspan='5'>México</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Actividad / giro mercantil</td>",
-    "<td class='val val-u' colspan='7'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>R.F.C. de la empresa</td>",
-    "<td class='val val-u mono' colspan='7'></td>",
-    "</tr>",
-    "</table>",
-
-    // ══ DOMICILIO DE LA EMPRESA ══
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>DOMICILIO DE LA EMPRESA</td></tr>",
-    "<tr>",
-    "<td class='lbl'>Calle, avenida o vía</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.direccion) + "</td>",
-    "<td class='lbl'>Colonia o urbanización</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.colonia) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>País</td>",
-    "<td class='val val-u'>México</td>",
-    "<td class='lbl' style='width:110px;'>Demarcación o municipio</td>",
-    "<td class='val val-u'>" + v(f.estado) + "</td>",
-    "<td class='lbl'>Ciudad / entidad</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.ciudad) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Código postal</td>",
-    "<td class='val val-u' style='width:65px;'>" + v(f.cp) + "</td>",
-    "<td class='lbl'>Número exterior</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>Número interior</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Núm. telefónico con clave lada</td>",
-    "<td class='val val-u'>" + v(f.tel) + "</td>",
-    "<td class='lbl'>Correo electrónico</td>",
-    "<td class='val val-u' colspan='5'>" + v(f.email) + "</td>",
-    "</tr>",
-    "</table>",
-
-    // ══ REPRESENTANTE LEGAL ══
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>REPRESENTANTE O APODERADO LEGAL</td></tr>",
-    "<tr>",
-    "<td class='lbl' style='width:120px;'>Nombre(s) sin abreviaturas</td>",
-    "<td class='val val-u' colspan='7'>" + v(p.nombres) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Apellido paterno</td>",
-    "<td class='val val-u' style='width:28%;'>" + v(p.apPaterno) + "</td>",
-    "<td class='lbl' style='width:90px;'>Apellido materno</td>",
-    "<td class='val val-u' colspan='5'>" + v(p.apMaterno) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Fecha de nacimiento</td>",
-    "<td class='val val-u'>" + _fmtFechaMxAmda(f.fechaNac) + "</td>",
-    "<td class='lbl'>C.U.R.P.</td>",
-    "<td class='val val-u mono' colspan='2'>" + v(f.curp) + "</td>",
-    "<td class='lbl'>R.F.C.</td>",
-    "<td class='val val-u mono' colspan='2'>" + v(f.rfc) + "</td>",
-    "</tr><tr>",
-    "<td class='lbl'>Nombre de la identificación</td>",
-    "<td class='val val-u'>" + v(f.tipoLic) + "</td>",
-    "<td class='lbl'>Autoridad que la emite</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>Número o folio</td>",
-    "<td class='val val-u' colspan='3'>" + v(f.numLicencia) + "</td>",
-    "</tr>",
-    "</table>",
-
-    // ══ DECLARACIÓN ══
-    "<table style='margin-top:5px;'><tr>",
-    "<td class='val txt-small' style='padding:6px;background:#fafafa;'>",
-    "Bajo protesta de decir verdad, manifiesto que los datos e información señalados en el presente ",
-    "formulario son auténticos, exactos y completos, y que actúo como representante legal de la empresa ",
-    "antes señalada con las facultades suficientes para suscribir el presente documento. Asimismo, acepto ",
-    "y autorizo que la concesionaria coteje, verifique y recabe la información aquí proporcionada con las ",
-    "Autoridades competentes y/o las Entidades Financieras que estime pertinente, conforme a la ",
-    "<em>Ley Federal para la Prevención e Identificación de Operaciones con Recursos de Procedencia Ilícita</em> ",
-    "y su Reglamento.",
-    "</td></tr></table>",
-
-    "<table style='margin-top:4px;border:none;'>",
-    "<tr>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Nombre y firma del representante legal</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: " + v(f.nombre) + "</div>",
-    "</td>",
-    "<td style='border:none;width:8%;'></td>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Nombre y firma del asesor</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: ________________________</div>",
-    "</td>",
-    "</tr></table>",
-
-    // ══════════════════════════════════════════
-    // ══ PÁGINA 2: BC + CHECKLIST ══
-    // ══════════════════════════════════════════
-    "<div class='page-break'></div>",
-
-    "<table><tr>",
-    "<td class='hdr' style='width:20%;font-size:14pt;font-weight:900;'>AMDA</td>",
-    "<td class='hdr' style='font-size:9pt;'>BENEFICIARIO CONTROLADOR Y DOCUMENTOS — PERSONA MORAL</td>",
-    "<td class='hdr' style='width:20%;font-size:8pt;'>CHECKLIST</td>",
-    "</tr></table>",
-
-    "<table style='margin-top:6px;'><tr>",
-    "<td class='val txt-small' style='padding:6px;background:#fafafa;'>",
-    "¿Existe alguna persona física que, directa o indirectamente, ejerza control, tenga influencia significativa ",
-    "o sea el beneficiario final de la operación realizada por la empresa? <strong>(Beneficiario Controlador)</strong>",
-    "</td></tr><tr>",
-    "<td style='padding:8px;'>",
-    "<span class='chk'></span> <strong>NO</strong> — La empresa actúa por cuenta propia &nbsp;&nbsp;&nbsp;&nbsp;",
-    "<span class='chk'></span> <strong>SÍ</strong> — Complete los datos a continuación",
-    "</td></tr></table>",
-
-    "<table>",
-    "<tr><td class='shdr' colspan='8'>DATOS DEL BENEFICIARIO CONTROLADOR (llenar solo si aplica)</td></tr>",
-    "<tr>",
-    "<td class='lbl' style='width:120px;'>Nombre(s) sin abreviaturas</td>",
-    "<td class='val val-u' colspan='7'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Apellido paterno</td>",
-    "<td class='val val-u' style='width:28%;'></td>",
-    "<td class='lbl' style='width:90px;'>Apellido materno</td>",
-    "<td class='val val-u' colspan='5'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Fecha de nacimiento</td>",
-    "<td class='val val-u'></td>",
-    "<td class='lbl'>C.U.R.P.</td>",
-    "<td class='val val-u mono' colspan='2'></td>",
-    "<td class='lbl'>R.F.C.</td>",
-    "<td class='val val-u mono' colspan='2'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Domicilio completo</td>",
-    "<td class='val val-u' colspan='7'></td>",
-    "</tr><tr>",
-    "<td class='lbl'>Identificación oficial</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "<td class='lbl'>Número o folio</td>",
-    "<td class='val val-u' colspan='3'></td>",
-    "</tr>",
-    "</table>",
-
-    "<table style='margin-top:10px;'>",
-    "<tr><td class='shdr' colspan='2'>Documentos requeridos de la empresa</td></tr>",
-    "<tr><td style='width:28px;text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Acta constitutiva y poderes notariales del representante legal</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>RFC con Constancia de Situación Fiscal de la empresa (SAT)</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Comprobante de domicilio de la empresa (máximo 3 meses de antigüedad)</td></tr>",
-    "<tr><td class='shdr' colspan='2'>Documentos del representante legal</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Identificación oficial vigente del representante (INE / Pasaporte)</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>CURP del representante legal</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>RFC del representante legal</td></tr>",
-    "<tr><td class='shdr' colspan='2'>Documentos de cumplimiento</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Formulario de identificación firmado (el presente documento)</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Aviso de privacidad firmado</td></tr>",
-    "<tr><td style='text-align:center;padding:4px;'><span class='chk'></span></td>",
-    "<td class='val' style='padding:5px;'>Datos del beneficiario controlador (si aplica)</td></tr>",
-    "</table>",
-
-    "<table style='margin-top:20px;border:none;'>",
-    "<tr>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Cotejo realizado por</div>",
-    "<div class='firma-box'></div>",
-    "<div style='font-size:7pt;margin-top:3px;border-top:1px solid #555;padding-top:2px;'>",
-    "Nombre: ________________________</div>",
-    "</td>",
-    "<td style='border:none;width:8%;'></td>",
-    "<td style='border:none;padding:4px;width:46%;'>",
-    "<div style='font-size:7.5pt;font-weight:bold;color:#1a4a3c;margin-bottom:4px;'>Sello de la empresa</div>",
-    "<div class='firma-box'></div>",
-    "</td>",
-    "</tr></table>",
-
-    "</body></html>",
-  ].join("");
-
-  return html;
-}
-
-function abrirFormularioAmda(form, tipo) {
+async function descargarFormularioAmda(form, tipo) {
   var agenciaNombre = (window.AUTOMIND && window.AUTOMIND.agenciaNombre) || "";
-  var html = (tipo === "moral")
-    ? generarFormularioPM(form, agenciaNombre)
-    : generarFormularioPF(form, agenciaNombre);
-  var w = window.open("", "_blank");
-  if (!w) {
-    alert("Permite las ventanas emergentes en tu navegador para abrir el formulario AMDA.");
+  var hoy  = new Date().toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" });
+  var p    = parsearNombreMx(form.nombre || "");
+  var fnac = _fmtFechaMxAmda(form.fechaNac);
+
+  var pdfUrl        = tipo === "moral" ? "amda-pm.pdf" : "amda-pf.pdf";
+  var nombreArchivo = (tipo === "moral" ? "AMDA-PM-" : "AMDA-PF-")
+    + (form.nombre || "cliente").replace(/\s+/g, "_") + ".pdf";
+
+  if (!window.PDFLib) {
+    alert("La librería de PDF no está cargada. Verifica tu conexión a Internet.");
     return;
   }
-  w.document.write(html);
-  w.document.close();
+
+  try {
+    var resp = await fetch(pdfUrl);
+    if (!resp.ok) throw new Error("No se pudo cargar el formulario (HTTP " + resp.status + ")");
+    var pdfBytes = await resp.arrayBuffer();
+
+    var pdfDoc  = await window.PDFLib.PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    var pdfForm = pdfDoc.getForm();
+
+    var set = function(nombre, valor) {
+      if (!valor && valor !== 0) return;
+      try { pdfForm.getTextField(nombre).setText(String(valor)); } catch(e) { /* campo no existe, ignorar */ }
+    };
+
+    if (tipo === "moral") {
+      // ── Encabezado
+      set("Denominación o razón social de la empresa que elabora el formatoRow1", agenciaNombre);
+      set("Fecha de elaboración del formatoRow1",          hoy);
+      // ── País de la empresa (default)
+      set("País de nacionalidadRow1",                      "México");
+      // ── Domicilio empresa (datos del cliente como base)
+      set("Calle avenida o víaRow1",                       form.direccion || "");
+      set("Colonia o urbanizaciónRow1",                    form.colonia   || "");
+      set("PaísRow1",                                      "México");
+      set("Demarcación política o municipioRow1",          form.estado    || "");
+      set("Ciudad población o entidad federativaRow1",     form.ciudad    || "");
+      set("Código postalRow1",                             form.cp        || "");
+      // ── Contacto empresa
+      set("Número telefónico con clave ladaRow1",          form.tel       || "");
+      set("Correo eléctronicoRow1",                        form.email     || "");
+      // ── Representante o apoderado legal
+      set("Nombres sin abreviaturasRow1",                  p.nombres);
+      set("Apellido paternoRow1",                          p.apPaterno);
+      set("Apellido maternoRow1",                          p.apMaterno);
+      set("Fecha de nacimientoRow1",                       fnac);
+      set("CURPRow1",                                      form.curp        || "");
+      set("RFCRow1_2",                                     form.rfc         || "");
+      set("Nombre de la identificaciónRow1",               form.tipoLic     || "");
+      set("Número o folioRow1",                            form.numLicencia || "");
+    } else {
+      // ── Encabezado
+      set("Denominación o razón social de la empresa que elabora el formatoRow1", agenciaNombre);
+      set("Fecha de elaboración del formatoRow1",          hoy);
+      // ── Datos del cliente PF
+      set("Nombres sin abreviaturasRow1",                  p.nombres);
+      set("Apellido paternoRow1",                          p.apPaterno);
+      set("Apellido maternoRow1",                          p.apMaterno);
+      set("Fecha de nacimientoRow1",                       fnac);
+      set("País de nacimientoRow1",                        "México");
+      set("País de nacionalidadRow1",                      "Mexicana");
+      set("CURPRow1",                                      form.curp        || "");
+      set("RFCRow1",                                       form.rfc         || "");
+      // ── Domicilio de residencia
+      set("Calle avenida o víaRow1",                       form.direccion || "");
+      set("Colonia o urbanizaciónRow1",                    form.colonia   || "");
+      set("PaísRow1",                                      "México");
+      set("Demarcación política o municipioRow1",          form.estado    || "");
+      set("Ciudad población o entidad federativaRow1",     form.ciudad    || "");
+      set("Código postalRow1",                             form.cp        || "");
+      // ── Datos de contacto
+      set("Número telefónico con clave ladaRow1",          form.tel       || "");
+      set("Correo eléctronicoRow1",                        form.email     || "");
+      // ── Identificación oficial
+      set("Nombre de la identificaciónRow1",               form.tipoLic     || "");
+      set("Número o folioRow1",                            form.numLicencia || "");
+    }
+
+    var filledBytes = await pdfDoc.save();
+    var blob = new Blob([filledBytes], { type: "application/pdf" });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement("a");
+    a.href   = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+
+  } catch(err) {
+    alert("Error al generar el formulario AMDA:\n" + err.message);
+  }
 }
 
 /* ── Stats top bar ────────────────────────────────────────────────────── */
@@ -5052,12 +4584,17 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                   <Fld label="Formatos AMDA" full>
                     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                       <div style={{ fontSize:12, color:"var(--muted)", lineHeight:1.5 }}>
-                        Genera el formulario de identificación AMDA pre-llenado con los datos del cliente.
-                        Se abrirá en una nueva ventana para imprimir o guardar como PDF.
+                        Descarga el formulario de identificación AMDA pre-llenado con los datos del cliente.
                       </div>
                       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                         <button type="button"
-                          onClick={() => abrirFormularioAmda(form, "fisica")}
+                          onClick={async (e) => {
+                            var btn = e.currentTarget;
+                            var orig = btn.textContent;
+                            btn.disabled = true; btn.textContent = "Generando…";
+                            try { await descargarFormularioAmda(form, "fisica"); }
+                            finally { btn.disabled = false; btn.textContent = orig; }
+                          }}
                           style={{ display:"inline-flex", alignItems:"center", gap:7,
                             padding:"8px 16px", borderRadius:8, fontSize:12, fontWeight:700,
                             border:"1.5px solid #2d6a4f", background:"#f0fdf4", color:"#1a4a3c",
@@ -5072,7 +4609,13 @@ function ClienteEditor({ clientes, defaultSelId, onUpdate, onDelete, usuarioActu
                           Formato Persona Física
                         </button>
                         <button type="button"
-                          onClick={() => abrirFormularioAmda(form, "moral")}
+                          onClick={async (e) => {
+                            var btn = e.currentTarget;
+                            var orig = btn.textContent;
+                            btn.disabled = true; btn.textContent = "Generando…";
+                            try { await descargarFormularioAmda(form, "moral"); }
+                            finally { btn.disabled = false; btn.textContent = orig; }
+                          }}
                           style={{ display:"inline-flex", alignItems:"center", gap:7,
                             padding:"8px 16px", borderRadius:8, fontSize:12, fontWeight:700,
                             border:"1.5px solid #2d6a4f", background:"#f0fdf4", color:"#1a4a3c",
