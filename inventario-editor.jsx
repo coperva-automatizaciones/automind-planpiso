@@ -228,6 +228,11 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
   const [saveError, setSaveError] = React.useState(null);
   const [saving,    setSaving]    = React.useState(false);
   const autoSaveTimer = React.useRef(null);
+  // Unidades creadas en esta sesión que aún no se han guardado nunca.
+  // Su primer guardado NO debe disparar alerta de semáforo: dar de alta una
+  // unidad no es un cambio de estado. Mismo criterio que la importación masiva
+  // (skipAlert) y que el cron diario (snapshot nulo = inicialización).
+  const nuevasRef = React.useRef(new Set());
 
   // Sync si cambia el tenant
   React.useEffect(() => {
@@ -285,7 +290,10 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
     setSaving(true);
     setSaveError(null);
     try {
-      await window.DB.saveVehicle(window.AUTOMIND.agencyId, computed);
+      const esAlta = nuevasRef.current.has(computed.id);
+      await window.DB.saveVehicle(window.AUTOMIND.agencyId, computed, { skipAlert: esAlta });
+      // Solo tras guardar bien: si falló, el reintento sigue siendo un alta.
+      if (esAlta) nuevasRef.current.delete(computed.id);
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
     } catch (err) {
@@ -346,6 +354,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
       if (tab) tab.rows = window.AUTOMIND.ROWS;
     }
     onRowsChange && onRowsChange(nextRows);
+    nuevasRef.current.add(newRow.id);
     setSelId(newRow.id);
   }
 
@@ -379,6 +388,7 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
           {!esVendedor && (
             <button className="inv-add-btn" onClick={handleAdd} title="Nueva unidad">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Nueva unidad</span>
             </button>
           )}
         </div>
@@ -667,8 +677,12 @@ function InventarioEditor({ rows: rowsInit, usuarios, usuarioActual, onRowsChang
             {I.truck({ width:32, height:32 })}
           </div>
           <h3>Sin unidad seleccionada</h3>
-          <p>Selecciona una unidad de la lista o agrega una nueva para comenzar.</p>
-          <button className="btn primary btn-sm inv-empty-btn" onClick={handleAdd}>+ Nueva unidad</button>
+          <p>{esVendedor
+            ? "Selecciona una unidad de la lista para ver su detalle."
+            : "Selecciona una unidad de la lista o agrega una nueva para comenzar."}</p>
+          {!esVendedor && (
+            <button className="btn primary btn-sm inv-empty-btn" onClick={handleAdd}>+ Nueva unidad</button>
+          )}
         </div>
       )}
 
