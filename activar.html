@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Activar acceso · Automind Plan Piso</title>
+
+<!--
+  Página intermedia de activación.
+
+  Existe por una sola razón: los enlaces de invitación de Supabase son de un
+  solo uso, y los escáneres de correo (Outlook/Hotmail Safe Links, filtros
+  corporativos) pre-cargan las URLs de los correos entrantes para analizarlas.
+  Esa carga automática consume el token antes de que la persona haga clic, y
+  el usuario recibe "enlace inválido o expirado" aunque haya entrado al
+  instante. Es el problema que Supabase documenta y cuya solución recomendada
+  es justamente esto: diferir la confirmación detrás de una acción humana.
+
+  Por eso esta página NO carga React, ni Supabase JS, ni nada externo, y el
+  avance es un <button> con JavaScript en vez de un <a href>: un rastreador
+  que solo sigue enlaces la descarga sin disparar nada, y el token sobrevive
+  intacto hasta que una persona real presiona el botón.
+-->
+
+<style>
+:root{
+  --accent:#2f6fed; --sidebar:#1b2a57;
+  --ink:#161b2e; --ink-2:#3c4257; --muted:#6b7488;
+  --bg:#f3f5fb; --card:#ffffff; --line:#e6e9f1;
+  --danger:#e0492f; --danger-bg:#fcebe7;
+  --warn:#d99613; --warn-bg:#fbf2da;
+  --radius:14px;
+  --font:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+  font-family:var(--font); font-size:15px; line-height:1.6;
+  display:grid; place-items:center; padding:24px;
+}
+.card{
+  width:100%; max-width:440px; background:var(--card);
+  border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+}
+.card-head{background:var(--sidebar); padding:22px 28px;}
+.eyebrow{
+  color:#fff; font-size:11px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; opacity:.75;
+}
+.card-title{color:#fff; font-size:18px; font-weight:800; margin-top:3px; letter-spacing:-.01em;}
+.card-body{padding:32px 28px; text-align:center;}
+.ico{
+  width:64px; height:64px; border-radius:50%; margin:0 auto 20px;
+  display:grid; place-items:center;
+}
+.ico.ok{background:#e8effd;}
+.ico.warn{background:var(--warn-bg);}
+.ico.bad{background:var(--danger-bg);}
+h1{font-size:20px; font-weight:800; margin:0 0 10px; letter-spacing:-.01em;}
+p{margin:0 0 22px; color:var(--ink-2);}
+.meta{font-size:13px; color:var(--muted); margin:0;}
+.btn{
+  width:100%; border:none; background:var(--accent); color:#fff;
+  font-family:var(--font); font-size:15px; font-weight:700;
+  padding:14px 24px; border-radius:10px; cursor:pointer;
+  transition:background .15s ease;
+}
+.btn:hover{background:color-mix(in srgb,var(--accent) 88%,#000);}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.link{
+  display:inline-block; margin-top:18px; color:var(--accent);
+  font-size:14px; font-weight:600; text-decoration:none;
+}
+.link:hover{text-decoration:underline;}
+.hint{
+  margin-top:22px; padding-top:18px; border-top:1px solid var(--line);
+  font-size:13px; color:var(--muted); text-align:left; line-height:1.65;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-head">
+    <div class="eyebrow">Automind Plan Piso</div>
+    <div class="card-title">Activación de acceso</div>
+  </div>
+  <div class="card-body" id="contenido"></div>
+</div>
+
+<script>
+(function () {
+  // Debe coincidir con "Email OTP expiration" en Supabase
+  // (Authentication → Sign In / Providers → Email). Hoy: 3600 s = 1 hora.
+  var TTL_SEGUNDOS = 3600;
+
+  var params  = new URLSearchParams(window.location.search);
+  var destB64 = params.get("d");
+  var emitido = parseInt(params.get("t"), 10);
+  var caja    = document.getElementById("contenido");
+
+  var ICO_RELOJ = '<svg viewBox="0 0 24 24" fill="none" stroke="#9a6a06" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="30" height="30"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  var ICO_ALERTA = '<svg viewBox="0 0 24 24" fill="none" stroke="#e0492f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="30" height="30"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  var ICO_LLAVE = '<svg viewBox="0 0 24 24" fill="none" stroke="#2f6fed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="30" height="30"><path d="M21 2l-2 2m-7.6 7.6a5 5 0 11-7.1 7.1 5 5 0 017.1-7.1zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"/></svg>';
+
+  // Decodifica el destino y verifica que apunte a Supabase.
+  // Sin esta validación la página sería un redirector abierto: cualquiera
+  // podría armar un enlace con nuestro dominio que lleve a un sitio de phishing.
+  // OJO: si algún día se configura un dominio de autenticación propio en
+  // Supabase (p. ej. auth.automind.mx), hay que permitirlo aquí o los enlaces
+  // dejarán de funcionar mostrando "Enlace incompleto".
+  function destino() {
+    if (!destB64) return null;
+    var url;
+    try { url = atob(destB64); } catch (e) { return null; }
+    try {
+      var u = new URL(url);
+      if (u.protocol !== "https:") return null;
+      if (u.hostname !== "supabase.co" && !u.hostname.endsWith(".supabase.co")) return null;
+      return url;
+    } catch (e) { return null; }
+  }
+
+  function segundosRestantes() {
+    return TTL_SEGUNDOS - (Math.floor(Date.now() / 1000) - emitido);
+  }
+
+  function textoRestante(seg) {
+    var min = Math.floor(seg / 60);
+    if (min >= 2)  return "Este enlace vence en " + min + " minutos.";
+    if (min === 1) return "Este enlace vence en 1 minuto.";
+    return "Este enlace vence en menos de un minuto.";
+  }
+
+  function pintarExpirado() {
+    caja.innerHTML =
+      '<div class="ico warn">' + ICO_RELOJ + '</div>' +
+      '<h1>Tu invitación venció</h1>' +
+      '<p>Los enlaces de acceso duran una hora por seguridad, y este ya pasó ese plazo.</p>' +
+      '<p class="meta">Pídele a tu administrador que te envíe una invitación nueva.</p>' +
+      '<a class="link" href="/">Ir al inicio de sesión</a>';
+  }
+
+  function pintarInvalido() {
+    caja.innerHTML =
+      '<div class="ico bad">' + ICO_ALERTA + '</div>' +
+      '<h1>Enlace incompleto</h1>' +
+      '<p>Este enlace no trae la información necesaria para activar tu acceso.</p>' +
+      '<p class="meta">Suele pasar si se copió cortado. Abre el enlace directamente desde el correo, sin copiarlo y pegarlo por partes.</p>' +
+      '<a class="link" href="/">Ir al inicio de sesión</a>';
+  }
+
+  function pintarListo(url) {
+    caja.innerHTML =
+      '<div class="ico ok">' + ICO_LLAVE + '</div>' +
+      '<h1>Activa tu acceso</h1>' +
+      '<p>Presiona el botón para crear tu contraseña y entrar a Automind.</p>' +
+      '<button class="btn" id="btn-activar" type="button">Activar mi cuenta</button>' +
+      '<p class="meta" style="margin-top:16px" id="restante">' + textoRestante(segundosRestantes()) + '</p>' +
+      '<div class="hint">Este paso adicional existe porque algunos filtros de correo abren los enlaces por su cuenta para revisarlos, y eso inutilizaba la invitación antes de que llegaras a ella.</div>';
+
+    document.getElementById("btn-activar").addEventListener("click", function () {
+      // Revalidar en el momento del clic, no solo al cargar: si la pestaña
+      // quedó abierta y el token venció en el intermedio, mandarlo a Supabase
+      // devolvería "inválido o expirado" y la app lo reportaría como "ya usado".
+      // Mejor decir la verdad aquí.
+      if (segundosRestantes() <= 0) { pintarExpirado(); return; }
+
+      // Marca para que la app sepa que el enlace SÍ estaba vigente al hacer
+      // clic. Si Supabase igual lo rechaza, la causa solo puede ser que el
+      // token ya se había consumido o que fue reemplazado por una invitación
+      // más reciente — y ese es el mensaje que debe ver el usuario.
+      try {
+        sessionStorage.setItem("automind_invite_click", JSON.stringify({
+          emitido: emitido,
+          clic:    Math.floor(Date.now() / 1000)
+        }));
+      } catch (e) { /* modo privado o storage bloqueado: seguimos igual */ }
+
+      window.location.href = url;
+    });
+
+    // Mantener el contador honesto mientras la pestaña siga abierta.
+    var tick = setInterval(function () {
+      var seg = segundosRestantes();
+      if (seg <= 0) { clearInterval(tick); pintarExpirado(); return; }
+      var el = document.getElementById("restante");
+      if (el) el.textContent = textoRestante(seg);
+    }, 30000);
+  }
+
+  var url = destino();
+  if (!url || !emitido || isNaN(emitido)) pintarInvalido();
+  else if (segundosRestantes() <= 0)      pintarExpirado();
+  else                                     pintarListo(url);
+})();
+</script>
+
+</body>
+</html>

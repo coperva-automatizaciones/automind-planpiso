@@ -130,10 +130,19 @@ Deno.serve(async (req) => {
       console.log("[invite-user] STEP 1: recovery link generado, authUserId:", authUserId);
     }
 
+    // ── Página intermedia contra escáneres de correo ───────────────────
+    // El action_link de Supabase es de un solo uso, y los filtros de seguridad
+    // (Safe Links de Outlook, antivirus corporativos) pre-cargan las URLs de los
+    // mensajes entrantes para analizarlas — consumiendo el token antes de que la
+    // persona alcance a hacer clic. Por eso el correo ya NO lleva el link de
+    // Supabase: lleva una página nuestra, inerte, donde un botón lo abre.
+    // Ver activar.html. `t` es la hora de emisión: la página la usa para saber
+    // si el enlace venció sin necesidad de consultarle a Supabase.
+    const activarUrl = actionLink
+      ? `${siteUrl}/activar.html?d=${encodeURIComponent(btoa(actionLink))}&t=${Math.floor(Date.now() / 1000)}`
+      : null;
+
     // ── Enviar SIEMPRE vía Brevo ──────────────────────────────────────
-    // Nota: el actionLink (URL de Supabase con token) NO va en un <a href> porque
-    // los filtros de contenido de Brevo lo descartan silenciosamente.
-    // Se incluye como texto plano — los clientes de correo lo hacen clickeable.
     const brevoKey = Deno.env.get("BREVO_API_KEY");
     if (brevoKey && actionLink) {
       try {
@@ -159,7 +168,7 @@ Deno.serve(async (req) => {
                 </p>
                 <p style="margin:0 0 20px">Haz clic en el botón para crear tu contraseña y activar tu acceso:</p>
                 <div style="text-align:center;margin-bottom:24px">
-                  <a href="${actionLink}"
+                  <a href="${activarUrl}"
                     style="display:inline-block;background:#2f6fed;color:#fff;
                     text-decoration:none;padding:14px 36px;border-radius:10px;
                     font-weight:700;font-size:15px">
@@ -167,7 +176,9 @@ Deno.serve(async (req) => {
                   </a>
                 </div>
                 <p style="color:#aaa;font-size:12px;margin:0;line-height:1.6">
-                  Este enlace expira en 24 horas y es de un solo uso.<br>
+                  Este enlace vence en 1 hora y es de un solo uso.<br>
+                  Si te llegan varias invitaciones, usa siempre la más reciente:
+                  la anterior deja de funcionar.<br>
                   Si no esperabas este correo, ignóralo.
                 </p>
               </div>
@@ -323,7 +334,12 @@ Deno.serve(async (req) => {
         success:     true,
         user:        savedUser,
         email_via:   emailVia,
-        action_link: actionLink,
+        // Se devuelve la URL de activar.html, NO el action_link crudo de
+        // Supabase: colaboradores.jsx lo muestra para copiar y compartir a mano
+        // cuando el correo no sale, y ese camino debe tener la misma protección
+        // contra escáneres que el correo. El nombre del campo se conserva para
+        // no romper a quien ya lo lee.
+        action_link: activarUrl,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
