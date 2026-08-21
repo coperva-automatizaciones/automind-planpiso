@@ -389,15 +389,50 @@ function App() {
         const hash = window.__initialHash || window.location.hash;
         window.__initialHash = ""; // limpiar para no reusar en recargas
 
-        // Detectar error en el hash (ej: link expirado)
+        // Detectar error en el hash (enlace vencido, ya consumido o inválido)
         if (hash.includes("error=")) {
           history.replaceState(null, "", window.location.pathname);
           const params = new URLSearchParams(hash.slice(1));
           const code = params.get("error_code") || "";
-          const msg  = params.get("error_description") || "El link no es válido.";
-          setLinkError(code.includes("expired") || msg.includes("expired")
-            ? "El link de invitación expiró. Pide a tu administrador que te reenvíe la invitación."
-            : "Link inválido: " + decodeURIComponent(msg.replace(/\+/g, " ")));
+          const msg  = params.get("error_description") || "";
+
+          // Supabase NO distingue "vencido" de "ya consumido": los dos llegan
+          // como otp_expired con el texto "Email link is invalid or has expired".
+          // La distinción la aporta activar.html, que valida la vigencia por su
+          // cuenta y sólo deja esta marca si el enlace seguía vivo al hacer clic.
+          // Si llegamos aquí con la marca puesta, el token no venció por tiempo:
+          // o lo consumió un escáner de correo, o lo reemplazó una invitación
+          // más reciente.
+          let marcaClic = null;
+          try {
+            const raw = sessionStorage.getItem("automind_invite_click");
+            if (raw) {
+              marcaClic = JSON.parse(raw);
+              sessionStorage.removeItem("automind_invite_click");
+            }
+          } catch (e) { /* storage bloqueado: caemos al mensaje ambiguo */ }
+
+          if (marcaClic) {
+            setLinkError({
+              titulo:  "Este enlace ya se usó",
+              mensaje: "El enlace todavía estaba vigente, así que no venció por tiempo: " +
+                       "ya se había utilizado, o una invitación más reciente lo dejó sin efecto. " +
+                       "Busca en tu correo la invitación más nueva y ábrela desde ahí.",
+            });
+          } else if (code.includes("expired") || msg.includes("expired")) {
+            setLinkError({
+              titulo:  "Enlace vencido o ya usado",
+              mensaje: "Las invitaciones duran una hora y son de un solo uso. " +
+                       "Si recibiste varias, sólo la más reciente funciona — revisa esa primero. " +
+                       "Si no tienes otra, pide una invitación nueva.",
+            });
+          } else {
+            setLinkError({
+              titulo:  "Enlace inválido",
+              mensaje: decodeURIComponent(msg.replace(/\+/g, " ")) ||
+                       "Este enlace no es válido. Ábrelo directamente desde el correo, sin copiarlo por partes.",
+            });
+          }
           setAuthLoading(false);
           return;
         }
@@ -657,8 +692,8 @@ function App() {
             <span className="login-brand-name">Automind</span>
           </div>
           <div className="login-hero">
-            <h1>Link<br />inválido.</h1>
-            <p>El enlace de invitación ya no es válido.</p>
+            <h1>Enlace<br />no válido.</h1>
+            <p>Este enlace de invitación ya no sirve para entrar.</p>
           </div>
           <div className="login-dots"><span /><span /><span /></div>
         </div>
@@ -672,9 +707,9 @@ function App() {
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
             </div>
-            <h2 style={{ margin:"0 0 10px" }}>Link expirado</h2>
+            <h2 style={{ margin:"0 0 10px" }}>{linkError.titulo}</h2>
             <p style={{ color:"var(--muted)", marginBottom:28, lineHeight:1.7, fontSize:14 }}>
-              {linkError}
+              {linkError.mensaje}
             </p>
             <button className="login-btn" onClick={() => setLinkError(null)}>
               Ir al inicio de sesión
