@@ -32,7 +32,7 @@ Desktop.ini
 
 # ── Reportes de entregables ──────────────────────────────────
 # Se publican como artifacts y son material de trabajo personal.
-# El repositorio conserva la documentación de dominio (01 a 06).
+# El repositorio conserva la documentación de dominio (01 a 13).
 docs/00-INDICE-ENTREGABLES.html
 docs/07-ESTADO-FUNCIONAL.html
 docs/09-RECORRIDO-FUNCIONAL.html
@@ -45,6 +45,12 @@ docs/F6-*.html
 # Propuestas técnicas — fuera del calendario de fases.
 docs/PROP-*.html
 docs/img/
+
+# ── Documento vivo en otro repositorio ───────────────────────
+# Copia de trabajo del contexto de la plataforma, que se mantiene en su propio
+# repositorio y ya divergió de esta. Versionarla aquí dejaría dos documentos con
+# el mismo nombre y contenidos distintos, que es como empiezan las divergencias.
+docs/CLAUDE-plataforma.md
 
 # ── Nota ─────────────────────────────────────────────────────
 # config.js SÍ se versiona: contiene la anon key, que es pública por diseño.

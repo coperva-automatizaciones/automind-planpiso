@@ -1,8 +1,12 @@
 # Análisis del MVP — Paquete de especificación para v2
 
-Cuatro documentos que capturan el conocimiento del MVP de **Automind · Plan Piso** para
-reconstruirlo desde cero. Escritos en agosto de 2026, sobre el estado del repositorio en el
-commit `e777aa2` y sobre el proyecto Supabase `wjdntftoyqkkycaozlhn`.
+El paquete que captura el conocimiento del MVP de **Automind · Plan Piso** para reconstruirlo
+desde cero. Escritos en agosto de 2026, sobre el estado del repositorio en el commit `e777aa2`
+y sobre el proyecto Supabase `wjdntftoyqkkycaozlhn`.
+
+Son dos bloques. **01 a 08** analizan lo que existe hoy; **10 a 13** proyectan la
+reconstrucción y son la fuente de su alcance, de sus decisiones de arquitectura y de las
+preguntas de negocio que siguen sin dueño.
 
 ## Por dónde empezar
 
@@ -14,9 +18,14 @@ commit `e777aa2` y sobre el proyecto Supabase `wjdntftoyqkkycaozlhn`.
 | Decidir stack, infraestructura y estrategia de datos | [04 · Requisitos v2](04-REQUISITOS-V2.md) |
 | **Levantar el MVP en tu máquina y meterle mano** | [05 · Entorno local](05-ENTORNO-LOCAL.md) |
 | **Saber qué archivos se pueden borrar y cuáles no** | [06 · Limpieza](06-LIMPIEZA.md) |
+| Ver los hallazgos tal como se observaron en pantalla | [08 · Hallazgos](08-HALLAZGOS-OBSERVADOS.md) |
+| Conocer la arquitectura objetivo y sus decisiones | [10 · Arquitectura objetivo](10-ARQUITECTURA-OBJETIVO.md) |
+| **Saber qué preguntar a negocio, y en qué orden** | [11 · Cuestionario](11-CUESTIONARIO-PRODUCTO.md) |
+| Entender por qué la integración con el DMS no entra aún | [12 · DMS e integración](12-DMS-E-INTEGRACION.md) |
+| Ver el alcance repartido en pantallas y sprints | [13 · Módulos y sprints](13-MODULOS-Y-SPRINTS.md) |
 
 Cada documento abre con un **TL;DR ejecutivo** sin jerga (media página) y sigue con el cuerpo
-técnico. Dirección puede leer solo los cuatro resúmenes.
+técnico. Dirección puede leer solo los resúmenes.
 
 ## Los documentos
 
@@ -49,6 +58,26 @@ El proyecto está desvinculado de producción — nada de lo que hagas ahí pued
 Análisis de riesgo archivo por archivo: qué se borra hoy sin consecuencias, qué exige revisión
 previa y qué no se toca. Con el hallazgo que condiciona todo — **la línea base no capturó el
 storage ni el cron**, así que tres `.sql` contienen información que no existe en ningún otro sitio.
+
+### [10 · Arquitectura objetivo](10-ARQUITECTURA-OBJETIVO.md)
+Las decisiones de arquitectura de la reconstrucción, cada una con su argumento escrito: monorepo
+con un paquete de reglas puro, un solo nivel de tenant, aislamiento verificado en cada
+despliegue, interés en lectura con foto diaria, y la frontera del CRM desde el primer día.
+
+### [11 · Cuestionario de producto y dominio](11-CUESTIONARIO-PRODUCTO.md)
+**No es una lista: es un árbol.** Seis preguntas raíz que abren o cierran bloques enteros, sus
+ramas condicionales y una ronda final de reglas finas que se pueden responder por escrito. Cada
+pregunta lleva por qué se hace y qué cambia según la respuesta. Incluye una ruta corta de quince
+para desbloquear el diseño sin cerrar el roadmap.
+
+### [12 · DMS e integración](12-DMS-E-INTEGRACION.md)
+Por qué la integración con el DMS no entra en la primera fase: el DMS no cubre plan piso, las
+condiciones del financiamiento las tiene la financiera, y el precedente de restricción de acceso
+a datos de terceros que costó cientos de millones en Estados Unidos.
+
+### [13 · Módulos, pantallas y sprints](13-MODULOS-Y-SPRINTS.md)
+El alcance repartido: pantalla por pantalla, lo que corre en el servidor, las promesas visibles
+que hoy no se cumplen, y qué entra y qué queda fuera de la primera fase.
 
 ## Los cinco hallazgos que más pesan
 
